@@ -10,7 +10,7 @@ struct AgentDigitalTwinApp: App {
             ContentView()
                 .environmentObject(scheduleManager)
                 .environmentObject(personaManager)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(.light)
         }
     }
 }
