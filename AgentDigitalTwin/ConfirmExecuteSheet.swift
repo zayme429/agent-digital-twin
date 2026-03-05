@@ -192,6 +192,24 @@ private func recommendedContent(platform: Platform, persona: AgentPersona) -> St
         return "风格：创意博主\n「给你发一个有趣的测试：30 秒测出你现在最需要哪种保障——结果可能会让你意外！」"
     case (.wechatPrivate, .concise):
         return "风格：知识领袖\n「附上这周最值得看的一篇文章：《为什么说保障规划是最划算的投资》，三分钟读完。」"
+
+    case (.clientMgmt, .professional):
+        return "风格：专业顾问\n【老客维系】臻享家医体检权益还有3个月到期，已发送预约提醒链接\n【潜力跟进】昨天点赞朋友圈的客户→开门红年金险活动邀约\n【生日触达】今日生日客户→专属问候卡\n【沉默唤醒】30天未互动→新年关怀祝福"
+    case (.clientMgmt, .friendly):
+        return "风格：生活达人\n给每位客户发一条暖心的个性化消息～\n生日的送祝福、好久不见的问问近况、有新资讯的分享一下，自然不硬推！"
+    case (.clientMgmt, .creative):
+        return "风格：创意博主\n用有趣的方式触达10位客户：一个测试链接、一条有料的内容、一句让人想回复的问候"
+    case (.clientMgmt, .concise):
+        return "风格：知识领袖\n10人分4组，精准触达：\n① 权益提醒 × 1  ② 活动邀约 × 3  ③ 生日祝福 × 2  ④ 关怀唤醒 × 4"
+
+    case (.meeting, .professional):
+        return "风格：专业顾问\n【会前 brief】王姐，36岁，乳腺囊肿+桥本氏甲状腺炎，关注重疾险\n目标：当场确定保额与预算\n已备：3套方案对比表 + 《重疾险3分钟看懂卡》"
+    case (.meeting, .friendly):
+        return "风格：生活达人\n见王姐前整理好思路～她最在意的是「别让一场病拖垮家里」，用真实案例说话，不要背条款！"
+    case (.meeting, .creative):
+        return "风格：创意博主\n会谈 brief：把「买保险」变成「给家庭打底盘」的对话，用可视化工具让她自己算出答案"
+    case (.meeting, .concise):
+        return "风格：知识领袖\n核心议题：重疾险保额 = 3-5年收入替代 + 房贷缓冲\n3套方案，15分钟讲清，30分钟促成决策"
     }
 }
 
