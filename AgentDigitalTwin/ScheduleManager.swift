@@ -48,7 +48,7 @@ class ScheduleManager: ObservableObject {
 
     func checkForDueCards() {
         let now = Date()
-        for card in cards where !card.isPosted && !announcedCardIDs.contains(card.id) {
+        for card in cards.sorted(by: { $0.scheduledTime < $1.scheduledTime }) where !card.isPosted && !announcedCardIDs.contains(card.id) {
             guard card.scheduledTime <= now else { continue }
             announcedCardIDs.insert(card.id)
             // Notification time = the card's scheduled time (not now)

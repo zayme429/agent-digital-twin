@@ -121,6 +121,12 @@ struct ScheduleCard: Identifiable {
                 scheduledTime: t(8, 45)
             ),
             ScheduleCard(
+                platform: .wechatPrivate,
+                title: "跟进：张总重疾险签约",
+                content: "每30分钟查询核保进度，17:00核保完成：肝癌除外承保。已生成安抚话术待发送",
+                scheduledTime: t(9, 0)
+            ),
+            ScheduleCard(
                 platform: .xiaohongshu,
                 title: "热点切入｜黄金波动",
                 content: "美以冲突升级→黄金/美元波动→年金险确定性规划科普。热点卡视觉，不硬推。",
@@ -143,12 +149,6 @@ struct ScheduleCard: Identifiable {
                 title: "面谈：王姐 @ 星巴克",
                 content: "家庭健康保障规划（重疾险为主）｜40分钟｜目标：当场确定预算与保障优先级",
                 scheduledTime: t(15, 0)
-            ),
-            ScheduleCard(
-                platform: .wechatPrivate,
-                title: "跟进：张总重疾险签约",
-                content: "每30分钟查询核保进度，17:00核保完成：肝癌除外承保。已生成安抚话术待发送",
-                scheduledTime: t(9, 0)
             ),
         ]
     }
