@@ -1,5 +1,15 @@
 import SwiftUI
 
+// MARK: - Light theme palette
+private enum T {
+    static let bg       = Color(r: 0.960, g: 0.958, b: 0.972)
+    static let card     = Color.white
+    static let agentBub = Color(r: 0.925, g: 0.922, b: 0.938)
+    static let accent   = Color(r: 0.330, g: 0.180, b: 0.780)
+    static let border   = Color(r: 0.882, g: 0.878, b: 0.900)
+    static let divider  = Color(r: 0.900, g: 0.896, b: 0.912)
+}
+
 // MARK: - ContentView
 
 struct ContentView: View {
@@ -9,6 +19,7 @@ struct ContentView: View {
     @State private var showDrawer   = false
     @State private var inputText    = ""
     @State private var isThinking   = false
+    @State private var isRecording  = false
     @State private var confirmCard: ScheduleCard?
     @State private var progressCard: ScheduleCard?
     @State private var showProgress = false
@@ -16,37 +27,25 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            // ── Background ───────────────────────────────────────────────
-            LinearGradient(
-                colors: [
-                    Color(r: 0.044, g: 0.044, b: 0.115),
-                    Color(r: 0.076, g: 0.044, b: 0.172),
-                    Color(r: 0.044, g: 0.044, b: 0.115),
-                ],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            T.bg.ignoresSafeArea()
 
-            StarsView().ignoresSafeArea()
-
-            // ── Main chat column ─────────────────────────────────────────
             VStack(spacing: 0) {
                 chatHeader
-                Divider().background(Color.white.opacity(0.08))
+                Divider().background(T.divider)
                 chatScrollView
-                Divider().background(Color.white.opacity(0.08))
+                if isRecording { recordingBar }
+                Divider().background(T.divider)
                 chatInputBar
             }
 
-            // ── Left drawer ──────────────────────────────────────────────
+            // Left drawer
             if showDrawer {
-                Color.black.opacity(0.45)
+                Color.black.opacity(0.25)
                     .ignoresSafeArea()
                     .onTapGesture {
                         withAnimation(.easeOut(duration: 0.25)) { showDrawer = false }
                     }
                     .zIndex(20)
-
                 SideDrawerView(isPresented: $showDrawer)
                     .environmentObject(personaManager)
                     .environmentObject(scheduleManager)
@@ -54,7 +53,7 @@ struct ContentView: View {
                     .zIndex(21)
             }
 
-            // ── Confirm sheet ────────────────────────────────────────────
+            // Confirm sheet
             if let card = confirmCard {
                 ConfirmExecuteSheet(
                     card: card,
@@ -72,7 +71,7 @@ struct ContentView: View {
                 .zIndex(10)
             }
 
-            // ── Progress overlay ─────────────────────────────────────────
+            // Progress overlay
             if showProgress, let card = progressCard {
                 TaskProgressOverlay(
                     card: card,
@@ -88,23 +87,21 @@ struct ContentView: View {
         .onTapGesture { inputFocused = false }
     }
 
-    // MARK: - Header bar
+    // MARK: - Header
 
     private var chatHeader: some View {
         HStack(spacing: 10) {
-            // Triangle drawer toggle
+            // Gear / settings button
             Button {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                     showDrawer.toggle()
                 }
             } label: {
-                Image(systemName: "triangle.fill")
-                    .font(.system(size: 12))
-                    .foregroundColor(Color.white.opacity(showDrawer ? 0.85 : 0.45))
-                    .rotationEffect(.degrees(showDrawer ? 270 : 90))
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 18))
+                    .foregroundColor(showDrawer ? T.accent : Color(r: 0.52, g: 0.50, b: 0.58))
                     .frame(width: 36, height: 36)
-                    .background(Circle().fill(Color.white.opacity(0.07)))
-                    .animation(.spring(response: 0.35, dampingFraction: 0.75), value: showDrawer)
+                    .background(Circle().fill(showDrawer ? T.accent.opacity(0.10) : T.agentBub))
             }
             .padding(.leading, 14)
 
@@ -112,8 +109,7 @@ struct ContentView: View {
             ZStack {
                 Circle()
                     .fill(LinearGradient(
-                        colors: [Color(r: 0.45, g: 0.20, b: 0.95),
-                                 Color(r: 0.15, g: 0.40, b: 0.90)],
+                        colors: [T.accent, Color(r: 0.18, g: 0.35, b: 0.85)],
                         startPoint: .topLeading, endPoint: .bottomTrailing))
                     .frame(width: 32, height: 32)
                 Text(personaManager.selectedPersona.emoji)
@@ -123,10 +119,10 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(personaManager.selectedPersona.name)
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                 Text(sessionDateString)
                     .font(.system(size: 11))
-                    .foregroundColor(Color.white.opacity(0.45))
+                    .foregroundColor(.secondary)
             }
 
             Spacer()
@@ -135,20 +131,18 @@ struct ContentView: View {
             let total = scheduleManager.cards.count
             Text("\(done)/\(total) 完成")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(Color.white.opacity(0.55))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Capsule().fill(Color.white.opacity(0.08)))
+                .foregroundColor(T.accent)
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .background(Capsule().fill(T.accent.opacity(0.10)))
                 .padding(.trailing, 16)
         }
         .frame(height: 54)
-        .background(Color.black.opacity(0.15))
+        .background(T.card)
     }
 
     private var sessionDateString: String {
         let f = DateFormatter()
-        f.locale     = Locale(identifier: "zh_CN")
-        f.dateFormat = "M月d日 EEEE"
+        f.locale = Locale(identifier: "zh_CN"); f.dateFormat = "M月d日 EEEE"
         return f.string(from: Date())
     }
 
@@ -157,7 +151,7 @@ struct ContentView: View {
     private var chatScrollView: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(spacing: 12) {
+                LazyVStack(spacing: 14) {
                     ForEach(scheduleManager.timeline) { item in
                         TimelineItemView(item: item) { card in
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -165,9 +159,7 @@ struct ContentView: View {
                             }
                         }
                     }
-                    if isThinking {
-                        ThinkingBubble()
-                    }
+                    if isThinking { ThinkingBubble() }
                     Color.clear.frame(height: 1).id("bottom")
                 }
                 .padding(.horizontal, 14)
@@ -175,76 +167,109 @@ struct ContentView: View {
                 .padding(.bottom, 10)
             }
             .onChange(of: scheduleManager.timeline.count) { _ in
-                withAnimation(.easeOut(duration: 0.3)) {
-                    proxy.scrollTo("bottom", anchor: .bottom)
-                }
+                withAnimation(.easeOut(duration: 0.3)) { proxy.scrollTo("bottom", anchor: .bottom) }
             }
             .onChange(of: isThinking) { _ in
-                withAnimation(.easeOut(duration: 0.2)) {
-                    proxy.scrollTo("bottom", anchor: .bottom)
-                }
+                withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo("bottom", anchor: .bottom) }
             }
-            .onAppear {
-                proxy.scrollTo("bottom", anchor: .bottom)
-            }
+            .onAppear { proxy.scrollTo("bottom", anchor: .bottom) }
         }
+    }
+
+    // MARK: - Recording bar
+
+    private var recordingBar: some View {
+        HStack(spacing: 10) {
+            RecordingPulse()
+            Text("正在录音…  松开发送，向左滑动取消")
+                .font(.system(size: 13))
+                .foregroundColor(.secondary)
+            Spacer()
+            Button("取消") {
+                withAnimation { isRecording = false }
+            }
+            .font(.system(size: 13, weight: .medium))
+            .foregroundColor(T.accent)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 10)
+        .background(T.accent.opacity(0.06))
+        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
     // MARK: - Input bar
 
     private var chatInputBar: some View {
-        HStack(spacing: 10) {
-            TextField("发送指令给代理人…", text: $inputText)
-                .font(.system(size: 14))
-                .foregroundColor(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
-                .background(
-                    RoundedRectangle(cornerRadius: 22)
-                        .fill(Color.white.opacity(0.08))
-                        .overlay(RoundedRectangle(cornerRadius: 22)
-                            .stroke(Color.white.opacity(0.14), lineWidth: 1))
-                )
-                .focused($inputFocused)
-                .onSubmit { sendMessage() }
-
-            Button { sendMessage() } label: {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 34))
-                    .foregroundColor(
-                        (inputText.isEmpty || isThinking)
-                            ? Color.white.opacity(0.2)
-                            : Color(r: 0.45, g: 0.20, b: 0.95)
-                    )
+        HStack(spacing: 8) {
+            // Voice button
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    if isRecording {
+                        isRecording = false
+                        sendVoiceMessage()
+                    } else {
+                        inputFocused = false
+                        isRecording = true
+                    }
+                }
+            } label: {
+                Image(systemName: isRecording ? "waveform.circle.fill" : "mic.circle.fill")
+                    .font(.system(size: 30))
+                    .foregroundColor(isRecording ? .red : T.accent)
             }
-            .disabled(inputText.isEmpty || isThinking)
+
+            if !isRecording {
+                TextField("发送指令给代理人…", text: $inputText)
+                    .font(.system(size: 14))
+                    .foregroundColor(.primary)
+                    .padding(.horizontal, 14).padding(.vertical, 11)
+                    .background(
+                        RoundedRectangle(cornerRadius: 22)
+                            .fill(T.bg)
+                            .overlay(RoundedRectangle(cornerRadius: 22)
+                                .stroke(T.border, lineWidth: 1))
+                    )
+                    .focused($inputFocused)
+                    .onSubmit { sendMessage() }
+
+                Button { sendMessage() } label: {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 30))
+                        .foregroundColor(inputText.isEmpty || isThinking
+                            ? T.border : T.accent)
+                }
+                .disabled(inputText.isEmpty || isThinking)
+            }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(Color.black.opacity(0.20))
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(T.card)
     }
 
-    // MARK: - Send message
+    // MARK: - Send
 
     private func sendMessage() {
         let trimmed = inputText.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty, !isThinking else { return }
-        inputText    = ""
-        inputFocused = false
-
+        inputText = ""; inputFocused = false
         scheduleManager.appendUser(trimmed)
         isThinking = true
-
-        let delay = Double.random(in: 0.9...1.5)
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + Double.random(in: 0.9...1.5)) {
             isThinking = false
             let resp = agentResponse(for: trimmed)
             scheduleManager.appendAgent(resp.text)
-            if let platform = resp.platform {
-                scheduleManager.queueManual(platform: platform)
-            }
+            if let platform = resp.platform { scheduleManager.queueManual(platform: platform) }
         }
     }
+
+    private func sendVoiceMessage() {
+        scheduleManager.appendUser("🎤 语音指令")
+        isThinking = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            isThinking = false
+            scheduleManager.appendAgent("收到语音指令 🎤\n已解析完成，如需发布内容请告诉我平台名称（如：发朋友圈）。")
+        }
+    }
+
+    // MARK: - Agent response logic
 
     private struct AgentResp { let text: String; var platform: Platform? = nil }
 
@@ -256,46 +281,34 @@ struct ContentView: View {
 
         if s.contains("今天") || s.contains("计划") || s.contains("行程") || s.contains("什么") {
             let lines = scheduleManager.cards.prefix(5).enumerated().map { i, c -> String in
-                let status = c.isPosted ? "✅" : "⏳"
-                return "\(i+1). [\(c.platform.rawValue)] \(c.title) \(status)"
+                "\(i+1). [\(c.platform.rawValue)] \(c.title) \(c.isPosted ? "✅" : "⏳")"
             }
             return AgentResp(text: "📋 今日发布计划（\(total) 条）：\n\n"
                 + lines.joined(separator: "\n")
-                + "\n\n已完成 \(done)/\(total)，当前人设：\(persona.emoji) \(persona.name)")
+                + "\n\n已完成 \(done)/\(total)，人设：\(persona.emoji) \(persona.name)")
         }
         if s.contains("朋友圈") {
-            return AgentResp(
-                text: "✅ 朋友圈任务已加入待执行队列！请在下方卡片确认执行。",
-                platform: .wechatMoments)
+            return AgentResp(text: "✅ 朋友圈任务已加入待执行队列，请在下方卡片确认执行。", platform: .wechatMoments)
         }
         if s.contains("小红书") || s.contains("红书") {
-            return AgentResp(
-                text: "✅ 小红书推送任务已加入待执行队列！请在下方卡片确认执行。",
-                platform: .xiaohongshu)
+            return AgentResp(text: "✅ 小红书推送任务已加入待执行队列，请在下方卡片确认执行。", platform: .xiaohongshu)
         }
         if s.contains("公众号") || s.contains("推文") {
-            return AgentResp(
-                text: "✅ 公众号推文任务已加入待执行队列！请在下方卡片确认执行。",
-                platform: .wechatOA)
+            return AgentResp(text: "✅ 公众号推文任务已加入待执行队列，请在下方卡片确认执行。", platform: .wechatOA)
         }
         if s.contains("互动") || s.contains("私聊") || s.contains("卡片") {
-            return AgentResp(
-                text: "✅ 微信互动卡片任务已加入待执行队列！请在下方卡片确认执行。",
-                platform: .wechatPrivate)
+            return AgentResp(text: "✅ 微信互动卡片任务已加入待执行队列，请在下方卡片确认执行。", platform: .wechatPrivate)
         }
         if s.contains("报告") || s.contains("总结") {
             let manual = scheduleManager.cards.filter { $0.isManualTrigger }.count
-            return AgentResp(text: "📊 今日运营报告\n─────────\n计划：\(total) 条 · 完成：\(done) 条 · 手动：\(manual) 次\n人设：\(persona.emoji) \(persona.name) · \(persona.tone.rawValue)\n─────────\n系统运行正常 ✅")
+            return AgentResp(text: "📊 今日运营报告\n─────\n计划：\(total) · 完成：\(done) · 手动：\(manual)\n人设：\(persona.emoji) \(persona.name) · \(persona.tone.rawValue)\n─────\n系统正常 ✅")
         }
         if s.contains("人设") || s.contains("切换") {
-            return AgentResp(text: "当前人设：\(persona.emoji) \(persona.name)\n\(persona.tone.rawValue) · \(persona.description)\n\n如需切换，请点击左上角 ▶ 菜单。")
+            return AgentResp(text: "当前人设：\(persona.emoji) \(persona.name)\n\(persona.tone.rawValue) · \(persona.description)\n\n切换请点击左上角齿轮菜单。")
         }
-        let fallbacks = [
-            "指令已接收 ✅\n\n正在以「\(persona.name)」人设处理你的请求。",
-            "明白！将按照 \(persona.tone.rawValue) 风格执行。\n\n如需触发某平台，可直接告诉我（如：发朋友圈）。",
-            "好的，正在处理中 ⚡\n\n如需发布内容，告诉我平台名称即可。",
-        ]
-        return AgentResp(text: fallbacks.randomElement()!)
+        return AgentResp(text: ["指令已接收 ✅  正在以「\(persona.name)」人设处理。",
+                                "明白！将按 \(persona.tone.rawValue) 风格执行。如需发布，告诉我平台名称即可。",
+                                "好的，处理中 ⚡  如需发布内容，告诉我平台名称即可。"].randomElement()!)
     }
 }
 
@@ -304,18 +317,17 @@ struct ContentView: View {
 struct TimelineItemView: View {
     let item:         TimelineItem
     let onTapPending: (ScheduleCard) -> Void
-
     var body: some View { itemContent }
 
     @ViewBuilder
     private var itemContent: some View {
         switch item {
-        case .agentText(_, let text, _):
-            AgentBubble(text: text)
-        case .userText(_, let text, _):
-            UserBubble(text: text)
-        case .overviewCard(_, _):
-            OverviewCardBubble()
+        case .agentText(_, let text, let time):
+            AgentBubble(text: text, time: time)
+        case .userText(_, let text, let time):
+            UserBubble(text: text, time: time)
+        case .overviewCard(_, let time):
+            OverviewCardBubble(time: time)
         case .pendingAction(_, let card):
             PendingCardBubble(card: card, onTap: { onTapPending(card) })
         case .completedAction(_, let card):
@@ -328,22 +340,26 @@ struct TimelineItemView: View {
 
 struct AgentBubble: View {
     let text: String
+    let time: Date
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             agentAvatar
-            Text(text)
-                .font(.system(size: 14))
-                .foregroundColor(.white)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 9)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.white.opacity(0.10))
-                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color.white.opacity(0.12), lineWidth: 1))
-                )
-                .frame(maxWidth: 280, alignment: .leading)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(text)
+                    .font(.system(size: 14))
+                    .foregroundColor(.primary)
+                    .padding(.horizontal, 12).padding(.vertical, 9)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(T.agentBub)
+                    )
+                    .frame(maxWidth: 280, alignment: .leading)
+                Text(shortTime(time))
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 4)
+            }
             Spacer(minLength: 0)
         }
     }
@@ -353,23 +369,28 @@ struct AgentBubble: View {
 
 struct UserBubble: View {
     let text: String
+    let time: Date
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             Spacer(minLength: 0)
-            Text(text)
-                .font(.system(size: 14))
-                .foregroundColor(.white)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 9)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(LinearGradient(
-                            colors: [Color(r: 0.45, g: 0.20, b: 0.95),
-                                     Color(r: 0.15, g: 0.40, b: 0.90)],
-                            startPoint: .topLeading, endPoint: .bottomTrailing))
-                )
-                .frame(maxWidth: 260, alignment: .trailing)
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(text)
+                    .font(.system(size: 14))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12).padding(.vertical, 9)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(LinearGradient(
+                                colors: [T.accent, Color(r: 0.18, g: 0.35, b: 0.85)],
+                                startPoint: .topLeading, endPoint: .bottomTrailing))
+                    )
+                    .frame(maxWidth: 260, alignment: .trailing)
+                Text(shortTime(time))
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .padding(.trailing, 4)
+            }
         }
     }
 }
@@ -386,24 +407,44 @@ struct ThinkingBubble: View {
             HStack(spacing: 5) {
                 ForEach(0..<3, id: \.self) { i in
                     Circle()
-                        .fill(Color.white.opacity(phase == i ? 0.9 : 0.28))
+                        .fill(Color.secondary.opacity(phase == i ? 0.8 : 0.3))
                         .frame(width: 7, height: 7)
                         .scaleEffect(phase == i ? 1.25 : 0.85)
                         .animation(.easeInOut(duration: 0.3), value: phase)
                 }
             }
             .padding(.horizontal, 16).padding(.vertical, 12)
-            .background(RoundedRectangle(cornerRadius: 16).fill(Color.white.opacity(0.10)))
+            .background(RoundedRectangle(cornerRadius: 16).fill(T.agentBub))
             Spacer()
         }
         .onReceive(ticker) { _ in phase = (phase + 1) % 3 }
     }
 }
 
-// MARK: - Overview card bubble
+// MARK: - Recording pulse animation
+
+private struct RecordingPulse: View {
+    @State private var pulsing = false
+
+    var body: some View {
+        ZStack {
+            Circle().fill(Color.red.opacity(0.20)).frame(width: 20, height: 20)
+                .scaleEffect(pulsing ? 1.6 : 1.0).opacity(pulsing ? 0 : 0.8)
+            Circle().fill(Color.red).frame(width: 10, height: 10)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: false)) {
+                pulsing = true
+            }
+        }
+    }
+}
+
+// MARK: - Overview card bubble (vertical layout)
 
 struct OverviewCardBubble: View {
     @EnvironmentObject var scheduleManager: ScheduleManager
+    let time: Date
 
     private var dateString: String {
         let f = DateFormatter()
@@ -414,65 +455,58 @@ struct OverviewCardBubble: View {
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             agentAvatar
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 6) {
-                    Image(systemName: "calendar.circle.fill")
-                        .font(.system(size: 13))
-                        .foregroundColor(Color(r: 0.45, g: 0.20, b: 0.95))
+
+            VStack(alignment: .leading, spacing: 0) {
+                // Header row
+                HStack {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(T.accent)
                     Text("今日总览 · \(dateString)")
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
+                    Spacer()
+                    let done = scheduleManager.completedCards.count
+                    let total = scheduleManager.cards.count
+                    Text("\(done)/\(total)")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(T.accent)
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .background(Capsule().fill(T.accent.opacity(0.10)))
                 }
+                .padding(.bottom, 10)
 
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(alignment: .top, spacing: 0) {
-                        ForEach(Array(scheduleManager.timelineCards.enumerated()), id: \.element.id) { idx, card in
-                            MiniTimelineDot(
-                                card: card,
-                                isLast: idx == scheduleManager.timelineCards.count - 1
-                            )
-                        }
+                Divider().background(T.divider)
+
+                // Vertical list of schedule items
+                ForEach(scheduleManager.timelineCards) { card in
+                    OverviewItemRow(card: card)
+                    if card.id != scheduleManager.timelineCards.last?.id {
+                        Divider().background(T.divider).padding(.leading, 38)
                     }
                 }
 
-                let done  = scheduleManager.completedCards.count
-                let total = scheduleManager.cards.count
-                HStack(spacing: 8) {
-                    statPill("list.bullet",          "\(total)",       "计划",  .white.opacity(0.55))
-                    statPill("checkmark.circle.fill", "\(done)",       "完成",  Color(r: 0.027, g: 0.757, b: 0.376))
-                    statPill("clock.fill",            "\(total-done)", "待执行", Color(r: 1.0, g: 0.6, b: 0.1))
-                }
+                // Timestamp
+                Text(shortTime(time))
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .padding(.top, 8)
             }
             .padding(14)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white.opacity(0.08))
-                    .overlay(RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.12), lineWidth: 1))
+                    .fill(T.card)
+                    .shadow(color: Color.black.opacity(0.06), radius: 8, y: 2)
             )
-            .frame(maxWidth: 310)
+            .frame(maxWidth: 320)
+
             Spacer(minLength: 0)
         }
     }
-
-    private func statPill(_ icon: String, _ value: String, _ label: String, _ color: Color) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 9)).foregroundColor(color)
-            Text("\(value) \(label)").font(.system(size: 10, weight: .semibold))
-                .foregroundColor(Color.white.opacity(0.7))
-        }
-        .padding(.horizontal, 8).padding(.vertical, 4)
-        .background(Capsule().fill(Color.white.opacity(0.07)))
-    }
 }
 
-// MARK: - Mini timeline dot (inside OverviewCardBubble)
-
-private struct MiniTimelineDot: View {
-    let card:   ScheduleCard
-    let isLast: Bool
-
-    private var isDue: Bool { card.scheduledTime <= Date() && !card.isPosted }
+private struct OverviewItemRow: View {
+    let card: ScheduleCard
 
     private var timeStr: String {
         let f = DateFormatter(); f.timeStyle = .short; f.locale = Locale(identifier: "zh_CN")
@@ -480,54 +514,51 @@ private struct MiniTimelineDot: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            VStack(spacing: 4) {
-                Text(timeStr)
-                    .font(.system(size: 8, weight: .medium))
-                    .foregroundColor(Color.white.opacity(0.4))
-                    .frame(width: 46)
+        HStack(spacing: 10) {
+            // Status circle
+            ZStack {
+                Circle()
+                    .fill(card.isPosted
+                        ? Color(r: 0.027, g: 0.757, b: 0.376).opacity(0.12)
+                        : T.agentBub)
+                    .frame(width: 28, height: 28)
+                if card.isPosted {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(Color(r: 0.027, g: 0.757, b: 0.376))
+                } else {
+                    Image(systemName: card.platform.icon)
+                        .font(.system(size: 11))
+                        .foregroundColor(card.platform.primaryColor)
+                }
+            }
 
-                ZStack {
-                    Circle()
-                        .fill(card.isPosted
-                              ? card.platform.primaryColor.opacity(0.20)
-                              : isDue
-                                ? Color(r: 1.0, g: 0.6, b: 0.1).opacity(0.20)
-                                : Color.white.opacity(0.06))
-                        .frame(width: 30, height: 30)
-                        .overlay(Circle().stroke(
-                            card.isPosted ? card.platform.primaryColor
-                                : isDue   ? Color(r: 1.0, g: 0.6, b: 0.1)
-                                          : Color.white.opacity(0.18),
-                            lineWidth: 1.5))
-
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(timeStr)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.secondary)
+                    Text(card.platform.rawValue)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(card.platform.primaryColor)
                     if card.isPosted {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(card.platform.primaryColor)
-                    } else {
-                        Image(systemName: card.platform.icon)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(isDue
-                                ? Color(r: 1.0, g: 0.6, b: 0.1)
-                                : card.platform.primaryColor.opacity(0.6))
+                        Text("已发布")
+                            .font(.system(size: 10))
+                            .foregroundColor(Color(r: 0.027, g: 0.757, b: 0.376))
                     }
                 }
-
-                Text(card.platform.rawValue)
-                    .font(.system(size: 8, weight: .medium))
-                    .foregroundColor(card.isPosted
-                        ? card.platform.primaryColor : Color.white.opacity(0.38))
-                    .frame(width: 46).multilineTextAlignment(.center)
+                Text(card.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.primary)
+                Text(card.content)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
             }
 
-            if !isLast {
-                Rectangle()
-                    .fill(Color.white.opacity(0.10))
-                    .frame(width: 16, height: 1)
-                    .padding(.bottom, 20)
-            }
+            Spacer(minLength: 0)
         }
+        .padding(.vertical, 8)
     }
 }
 
@@ -537,98 +568,78 @@ struct PendingCardBubble: View {
     let card:  ScheduleCard
     let onTap: () -> Void
 
-    private var timeStr: String {
-        let f = DateFormatter(); f.timeStyle = .short; f.locale = Locale(identifier: "zh_CN")
-        return f.string(from: card.scheduledTime)
-    }
-
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             agentAvatar
 
-            Button(action: onTap) {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 6) {
-                        HStack(spacing: 4) {
+            VStack(alignment: .leading, spacing: 4) {
+                Button(action: onTap) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        // Platform row
+                        HStack(spacing: 6) {
                             Image(systemName: card.platform.icon)
-                                .font(.system(size: 10, weight: .semibold))
-                            Text(card.platform.rawValue)
                                 .font(.system(size: 11, weight: .semibold))
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 9).padding(.vertical, 4)
-                        .background(
-                            LinearGradient(colors: card.platform.gradientColors,
-                                           startPoint: .leading, endPoint: .trailing)
-                                .clipShape(Capsule())
-                        )
+                                .foregroundColor(card.platform.primaryColor)
+                            Text(card.platform.rawValue)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(card.platform.primaryColor)
 
-                        if card.isManualTrigger {
-                            Text("手动")
-                                .font(.system(size: 9, weight: .bold))
+                            if card.isManualTrigger {
+                                Text("手动")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(T.accent)
+                                    .padding(.horizontal, 6).padding(.vertical, 2)
+                                    .background(Capsule().fill(T.accent.opacity(0.10)))
+                            }
+
+                            Spacer()
+
+                            Text(shortTime(card.scheduledTime))
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                        }
+
+                        Text(card.title)
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .foregroundColor(.primary)
+
+                        Text(card.content)
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                            .lineLimit(2)
+
+                        // Execute button
+                        HStack {
+                            Spacer()
+                            Label("点击确认执行", systemImage: "bolt.fill")
+                                .font(.system(size: 12, weight: .bold))
                                 .foregroundColor(.white)
-                                .padding(.horizontal, 7).padding(.vertical, 3)
-                                .background(Capsule().fill(Color(r: 1.0, g: 0.6, b: 0.0)))
-                        }
-
-                        Spacer()
-
-                        HStack(spacing: 3) {
-                            Image(systemName: "clock.fill")
-                                .font(.system(size: 9))
-                                .foregroundColor(Color.white.opacity(0.38))
-                            Text(timeStr)
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(Color.white.opacity(0.5))
+                                .padding(.horizontal, 14).padding(.vertical, 8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(card.platform.primaryColor)
+                                )
                         }
                     }
-
-                    Text(card.title)
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-
-                    Text(card.content)
-                        .font(.system(size: 12))
-                        .foregroundColor(Color.white.opacity(0.62))
-                        .lineLimit(2)
-
-                    HStack {
-                        Spacer()
-                        HStack(spacing: 5) {
-                            Image(systemName: "bolt.fill").font(.system(size: 10, weight: .bold))
-                            Text("点击确认执行").font(.system(size: 11, weight: .bold))
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 14).padding(.vertical, 7)
-                        .background(
-                            LinearGradient(colors: card.platform.gradientColors,
-                                           startPoint: .leading, endPoint: .trailing)
-                                .clipShape(Capsule())
-                        )
-                        .shadow(color: card.platform.primaryColor.opacity(0.4), radius: 8, y: 3)
-                    }
+                    .padding(13)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(T.card)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(card.platform.primaryColor.opacity(0.25), lineWidth: 1.5)
+                            )
+                            .shadow(color: Color.black.opacity(0.06), radius: 8, y: 2)
+                    )
                 }
-                .padding(13)
-                .background(
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 16).fill(Color.white.opacity(0.08))
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(RadialGradient(
-                                colors: [card.platform.primaryColor.opacity(0.12), .clear],
-                                center: .topLeading, startRadius: 0, endRadius: 160))
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(
-                                LinearGradient(
-                                    colors: [card.platform.primaryColor.opacity(0.6),
-                                             Color.white.opacity(0.06)],
-                                    startPoint: .topLeading, endPoint: .bottomTrailing),
-                                lineWidth: 1.5)
-                    }
-                )
-                .shadow(color: card.platform.primaryColor.opacity(0.20), radius: 12, y: 4)
+                .buttonStyle(CardPressStyle())
+                .frame(maxWidth: 300)
+
+                Text(shortTime(card.scheduledTime))
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 4)
             }
-            .buttonStyle(CardPressStyle())
-            .frame(maxWidth: 300)
 
             Spacer(minLength: 0)
         }
@@ -640,65 +651,68 @@ struct PendingCardBubble: View {
 struct CompletedCardBubble: View {
     let card: ScheduleCard
 
-    private var timeStr: String {
-        let f = DateFormatter(); f.timeStyle = .short; f.locale = Locale(identifier: "zh_CN")
-        return f.string(from: card.scheduledTime)
-    }
-
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             agentAvatar
 
-            HStack(spacing: 10) {
-                ZStack {
-                    Circle()
-                        .fill(card.platform.primaryColor.opacity(0.15))
-                        .frame(width: 36, height: 36)
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(card.platform.primaryColor)
-                }
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(card.title)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Color.white.opacity(0.85))
-                    HStack(spacing: 5) {
-                        Text(card.platform.rawValue)
-                            .font(.system(size: 11))
-                            .foregroundColor(card.platform.primaryColor.opacity(0.8))
-                        Text("· 已发布")
-                            .font(.system(size: 11))
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 10) {
+                    ZStack {
+                        Circle()
+                            .fill(Color(r: 0.027, g: 0.757, b: 0.376).opacity(0.12))
+                            .frame(width: 32, height: 32)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 11, weight: .bold))
                             .foregroundColor(Color(r: 0.027, g: 0.757, b: 0.376))
-                        Text(timeStr)
-                            .font(.system(size: 11))
-                            .foregroundColor(Color.white.opacity(0.38))
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(card.title)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.primary)
+                        HStack(spacing: 5) {
+                            Text(card.platform.rawValue)
+                                .font(.system(size: 11))
+                                .foregroundColor(card.platform.primaryColor)
+                            Text("· 已发布")
+                                .font(.system(size: 11))
+                                .foregroundColor(Color(r: 0.027, g: 0.757, b: 0.376))
+                        }
                     }
                 }
+                .padding(.horizontal, 12).padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(T.card)
+                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(T.border, lineWidth: 1))
+                        .shadow(color: Color.black.opacity(0.04), radius: 4, y: 1)
+                )
+
+                Text(shortTime(card.scheduledTime))
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 4)
             }
-            .padding(.horizontal, 12).padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(Color.white.opacity(0.06))
-                    .overlay(RoundedRectangle(cornerRadius: 14)
-                        .stroke(Color.white.opacity(0.09), lineWidth: 1))
-            )
 
             Spacer(minLength: 0)
         }
     }
 }
 
-// MARK: - Shared agent avatar
+// MARK: - Shared helpers
 
 private var agentAvatar: some View {
     Circle()
         .fill(LinearGradient(
-            colors: [Color(r: 0.45, g: 0.20, b: 0.95),
-                     Color(r: 0.15, g: 0.40, b: 0.90)],
+            colors: [T.accent, Color(r: 0.18, g: 0.35, b: 0.85)],
             startPoint: .topLeading, endPoint: .bottomTrailing))
         .frame(width: 28, height: 28)
         .overlay(Text("🤖").font(.system(size: 13)))
+}
+
+func shortTime(_ date: Date) -> String {
+    let f = DateFormatter(); f.timeStyle = .short; f.locale = Locale(identifier: "zh_CN")
+    return f.string(from: date)
 }
 
 // MARK: - Card press style

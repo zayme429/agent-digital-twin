@@ -37,7 +37,7 @@ class ScheduleManager: ObservableObject {
         f.locale      = Locale(identifier: "zh_CN")
         f.dateFormat  = "M月d日 EEEE"
         let count = ScheduleCard.todayCards().count
-        return "\(greet)！今天是 \(f.string(from: Date()))，共安排了 \(count) 条内容发布计划。到时间点我会提醒你确认执行。"
+        return "\(greet)！今天是 \(f.string(from: Date()))，共安排了 \(count) 条内容发布计划。到达时间点我会自动提醒你确认执行。"
     }
 
     private func checkDayRollover() {
@@ -51,7 +51,9 @@ class ScheduleManager: ObservableObject {
         for card in cards where !card.isPosted && !announcedCardIDs.contains(card.id) {
             guard card.scheduledTime <= now else { continue }
             announcedCardIDs.insert(card.id)
-            appendAgent("📬 \(card.platform.rawValue) 发布时间到了！请确认是否执行「\(card.title)」。")
+            // Notification time = the card's scheduled time (not now)
+            appendAgent("📬 \(card.platform.rawValue) 发布时间到了！请确认是否执行「\(card.title)」。",
+                        at: card.scheduledTime)
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                 timeline.append(.pendingAction(id: UUID(), card: card))
             }
@@ -101,9 +103,9 @@ class ScheduleManager: ObservableObject {
 
     // MARK: - Timeline helpers
 
-    func appendAgent(_ text: String) {
+    func appendAgent(_ text: String, at time: Date = Date()) {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-            timeline.append(.agentText(id: UUID(), text: text, time: Date()))
+            timeline.append(.agentText(id: UUID(), text: text, time: time))
         }
     }
 

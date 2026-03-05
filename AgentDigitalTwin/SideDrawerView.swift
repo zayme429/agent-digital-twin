@@ -1,5 +1,15 @@
 import SwiftUI
 
+private enum DS {
+    static let bg       = Color(red: 0.970, green: 0.968, blue: 0.980)
+    static let card     = Color.white
+    static let accent   = Color(red: 0.330, green: 0.180, blue: 0.780)
+    static let label    = Color(red: 0.12,  green: 0.10,  blue: 0.18)
+    static let sub      = Color(red: 0.55,  green: 0.53,  blue: 0.62)
+    static let divider  = Color(red: 0.88,  green: 0.876, blue: 0.900)
+    static let border   = Color(red: 0.90,  green: 0.896, blue: 0.912)
+}
+
 struct SideDrawerView: View {
     @Binding var isPresented: Bool
     @EnvironmentObject var personaManager:  PersonaManager
@@ -11,19 +21,19 @@ struct SideDrawerView: View {
         HStack(spacing: 0) {
             VStack(spacing: 0) {
 
-                // ── Header card ───────────────────────────────────────────
+                // ── Header card ────────────────────────────────────────────
                 VStack(alignment: .leading, spacing: 14) {
                     HStack {
                         Text("代理人控制台")
                             .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(DS.label)
                         Spacer()
                         Button {
                             withAnimation(.easeOut(duration: 0.25)) { isPresented = false }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.system(size: 20))
-                                .foregroundColor(Color.white.opacity(0.38))
+                                .foregroundColor(DS.sub)
                         }
                     }
 
@@ -33,37 +43,38 @@ struct SideDrawerView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(personaManager.selectedPersona.name)
                                 .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(.white)
+                                .foregroundColor(DS.label)
                             Text(personaManager.selectedPersona.tone.rawValue)
                                 .font(.system(size: 11))
-                                .foregroundColor(Color.white.opacity(0.5))
+                                .foregroundColor(DS.sub)
                         }
                         Spacer()
                         Button { showPersonaSettings = true } label: {
                             Image(systemName: "slider.horizontal.3")
                                 .font(.system(size: 14))
-                                .foregroundColor(Color.white.opacity(0.6))
+                                .foregroundColor(DS.sub)
                                 .padding(8)
-                                .background(Circle().fill(Color.white.opacity(0.08)))
+                                .background(Circle().fill(DS.border))
                         }
                     }
                     .padding(12)
                     .background(
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.white.opacity(0.07))
+                            .fill(DS.card)
                             .overlay(RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.white.opacity(0.10), lineWidth: 1))
+                                .stroke(DS.border, lineWidth: 1))
+                            .shadow(color: Color.black.opacity(0.04), radius: 4, y: 2)
                     )
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 56)
                 .padding(.bottom, 16)
 
-                Divider().background(Color.white.opacity(0.08))
+                Divider().background(DS.divider)
 
-                // ── Scrollable sections ───────────────────────────────────
+                // ── Scrollable sections ────────────────────────────────────
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 20) {
 
                         // Persona list
                         drawerSection("切换人设") {
@@ -79,14 +90,14 @@ struct SideDrawerView: View {
                             }
                         }
 
-                        Divider().background(Color.white.opacity(0.08))
+                        Divider().background(DS.divider)
 
                         // Today completed
                         drawerSection("今日已执行 (\(scheduleManager.completedCards.count))") {
                             if scheduleManager.completedCards.isEmpty {
                                 Text("暂无已执行任务")
                                     .font(.system(size: 12))
-                                    .foregroundColor(Color.white.opacity(0.35))
+                                    .foregroundColor(DS.sub)
                                     .padding(.horizontal, 4)
                             } else {
                                 ForEach(scheduleManager.completedCards) { card in
@@ -95,7 +106,7 @@ struct SideDrawerView: View {
                             }
                         }
 
-                        Divider().background(Color.white.opacity(0.08))
+                        Divider().background(DS.divider)
 
                         // History (placeholder)
                         drawerSection("历史对话") {
@@ -103,20 +114,13 @@ struct SideDrawerView: View {
                         }
                     }
                     .padding(.horizontal, 18)
-                    .padding(.vertical, 16)
+                    .padding(.vertical, 18)
                 }
             }
             .frame(width: 280)
-            .background(
-                Color(r: 0.058, g: 0.042, b: 0.145)
-                    .overlay(
-                        LinearGradient(
-                            colors: [Color(r: 0.45, g: 0.20, b: 0.95).opacity(0.08), .clear],
-                            startPoint: .top, endPoint: .bottom)
-                    )
-            )
+            .background(DS.bg)
             .overlay(alignment: .trailing) {
-                Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1)
+                Rectangle().fill(DS.divider).frame(width: 1)
             }
 
             Spacer()
@@ -132,7 +136,7 @@ struct SideDrawerView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
                 .font(.system(size: 11, weight: .bold))
-                .foregroundColor(Color.white.opacity(0.38))
+                .foregroundColor(DS.sub)
                 .textCase(.uppercase)
             content()
         }
@@ -146,6 +150,8 @@ private struct PersonaDrawerRow: View {
     let isSelected: Bool
     let onTap:      () -> Void
 
+    private let accent = Color(red: 0.330, green: 0.180, blue: 0.780)
+
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 10) {
@@ -153,23 +159,16 @@ private struct PersonaDrawerRow: View {
                     .font(.system(size: 17))
                     .frame(width: 32, height: 32)
                     .background(
-                        Circle().fill(isSelected
-                            ? LinearGradient(
-                                colors: [Color(r: 0.45, g: 0.20, b: 0.95),
-                                         Color(r: 0.15, g: 0.40, b: 0.90)],
-                                startPoint: .topLeading, endPoint: .bottomTrailing)
-                            : LinearGradient(
-                                colors: [Color.white.opacity(0.08), Color.white.opacity(0.08)],
-                                startPoint: .top, endPoint: .bottom))
+                        Circle().fill(isSelected ? accent.opacity(0.12) : Color(red: 0.92, green: 0.918, blue: 0.930))
                     )
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(persona.name)
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(isSelected ? .white : Color.white.opacity(0.7))
+                        .foregroundColor(isSelected ? accent : Color(red: 0.20, green: 0.18, blue: 0.28))
                     Text(persona.tone.rawValue)
                         .font(.system(size: 11))
-                        .foregroundColor(Color.white.opacity(0.4))
+                        .foregroundColor(Color(red: 0.55, green: 0.53, blue: 0.62))
                 }
 
                 Spacer()
@@ -177,13 +176,17 @@ private struct PersonaDrawerRow: View {
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 14))
-                        .foregroundColor(Color(r: 0.45, g: 0.20, b: 0.95))
+                        .foregroundColor(accent)
                 }
             }
             .padding(.horizontal, 10).padding(.vertical, 8)
             .background(
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(isSelected ? Color.white.opacity(0.10) : Color.clear)
+                    .fill(isSelected ? accent.opacity(0.06) : Color.clear)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(isSelected ? accent.opacity(0.18) : Color.clear, lineWidth: 1)
+                    )
             )
         }
         .buttonStyle(PlainButtonStyle())
@@ -204,18 +207,23 @@ private struct DrawerCompletedRow: View {
         HStack(spacing: 8) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 12))
-                .foregroundColor(card.platform.primaryColor)
+                .foregroundColor(Color(red: 0.027, green: 0.757, blue: 0.376))
             Text(card.title)
                 .font(.system(size: 12, weight: .medium))
-                .foregroundColor(Color.white.opacity(0.65))
+                .foregroundColor(Color(red: 0.20, green: 0.18, blue: 0.28))
                 .lineLimit(1)
             Spacer()
             Text(timeStr)
                 .font(.system(size: 10))
-                .foregroundColor(Color.white.opacity(0.35))
+                .foregroundColor(Color(red: 0.55, green: 0.53, blue: 0.62))
         }
-        .padding(.horizontal, 8).padding(.vertical, 6)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.04)))
+        .padding(.horizontal, 10).padding(.vertical, 7)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.white)
+                .overlay(RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color(red: 0.90, green: 0.896, blue: 0.912), lineWidth: 1))
+        )
     }
 }
 
@@ -235,16 +243,21 @@ private struct DrawerHistoryRow: View {
         HStack(spacing: 8) {
             Image(systemName: "clock.arrow.circlepath")
                 .font(.system(size: 11))
-                .foregroundColor(Color.white.opacity(0.35))
+                .foregroundColor(Color(red: 0.55, green: 0.53, blue: 0.62))
             Text(dateStr)
                 .font(.system(size: 12))
-                .foregroundColor(Color.white.opacity(0.5))
+                .foregroundColor(Color(red: 0.20, green: 0.18, blue: 0.28))
             Spacer()
             Text("4 条记录")
                 .font(.system(size: 10))
-                .foregroundColor(Color.white.opacity(0.28))
+                .foregroundColor(Color(red: 0.55, green: 0.53, blue: 0.62))
         }
-        .padding(.horizontal, 8).padding(.vertical, 6)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.04)))
+        .padding(.horizontal, 10).padding(.vertical, 7)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.white)
+                .overlay(RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color(red: 0.90, green: 0.896, blue: 0.912), lineWidth: 1))
+        )
     }
 }
