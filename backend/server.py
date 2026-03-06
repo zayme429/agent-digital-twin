@@ -5,14 +5,20 @@ Run:  python3 server.py
 Open: http://localhost:8765
 """
 
+import cgi
+import io
 import json
+import mimetypes
 import os
 import sys
+import uuid as uuid_mod
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 PORT = 8765
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+MEDIA_DIR   = os.path.join(os.path.dirname(os.path.abspath(__file__)), "media")
+os.makedirs(MEDIA_DIR, exist_ok=True)
 
 # ── Default config ──────────────────────────────────────────────────────────
 
@@ -43,37 +49,72 @@ DEFAULT_CONFIG = {
             "platform": "朋友圈", "time": "08:45", "title": "早安问候", "enabled": True,
             "card_summary": "专业顾问风格｜「早安。好的保障不是等风险来了才想起，而是在平静日常里把底盘打稳。」+问候贴图",
             "post_content": "早安。好的保障不是等风险来了才想起，而是在平静日常里把底盘打稳。愿你今天忙而不乱，稳而有底。",
-            "media_desc": "一张职场问候帖", "style_note": "专业顾问风格，温暖不说教"
+            "media_files": [], "media_desc": "一张职场问候帖", "style_note": "专业顾问风格，温暖不说教"
         },
         {
             "platform": "微信私聊", "time": "09:00", "title": "跟进：张总重疾险签约", "enabled": True,
             "card_summary": "每30分钟查询核保进度，17:00核保完成：肝癌除外承保。已生成安抚话术待发送",
             "post_content": "张总，核保结果出来了：可以正常承保，肝癌项做除外责任。其余重疾保障不受影响，确认后我发您签约链接。",
-            "media_desc": "", "style_note": "专业简洁，安抚情绪，推动签约"
+            "media_files": [], "media_desc": "", "style_note": "专业简洁，安抚情绪，推动签约"
         },
         {
-            "platform": "小红书", "time": "09:10", "title": "热点切入｜黄金波动", "enabled": True,
-            "card_summary": "美以冲突升级→黄金/美元波动→年金险确定性规划科普。热点卡视觉，不硬推。",
-            "post_content": "美以冲突升级 → 黄金/美元剧烈波动。市场越动荡，年金险的「确定性」越珍贵。今天聊聊怎么用年金险对冲不确定性。",
-            "media_desc": "极简对比信息图：黄金波动 vs 年金确定性", "style_note": "热点切入，不硬推，科普为主"
+            "platform": "小红书", "time": "09:10",
+            "title": "《黄金大涨后大跌！历史上6次黄金暴跌，我们该如何配置财富》", "enabled": True,
+            "card_summary": "黄金历史暴跌复盘→保险作为确定性底仓的配置逻辑科普。引发互动，不硬推。",
+            "post_content": (
+                '别再把黄金当成"稳稳的幸福"了⚠️\n'
+                '我真的花了3天把近40年数据翻了个底朝天📚\n'
+                '结论：黄金的"腰斩名场面"比电视剧还抓马……💥\n'
+                '看完这篇，你会比90%的炒金人更清醒🧠✨\n\n'
+                '🪙黄金=乱世护身符，但不是"稳赚神器"\n'
+                '黄金更像是极端情况下的保值工具：\n'
+                '✅ 对抗货币贬值\n✅ 风险事件爆发时有机会顶一顶\n'
+                '但它也有很现实的一面👇\n\n'
+                '😵黄金风险暴露：跌起来真的不讲武德\n'
+                '📉 历史上出现过单日跌超12%的情况\n'
+                '⚡ 波动强到很多人根本扛不住\n'
+                '🧨 而且政策/利率/预期一变，行情可能说崩就崩\n\n'
+                '🛡️我更想要的是"能睡得着"的确定性\n'
+                '这也是为什么很多家庭会用储蓄险做底仓：\n'
+                '✅ 确定性收益（按合同走）\n'
+                '✅ 时间规划（孩子教育/养老/家庭备用金）\n'
+                '✅ "隔离人性弱点"（不追涨杀跌、不被情绪带着跑）\n\n'
+                '📌避险逻辑：保险更像"家庭理财的稳定基石"\n'
+                '📜 《保险法》框架下，合同权益更刚性\n'
+                '🧱 还能做到一定程度的资产隔离（更适合做家庭底盘）\n'
+                '（当然：具体以产品条款与个人情况为准～）\n\n'
+                '🔁复利感受一下（仅供参考）\n假设：年缴10万×10年\n'
+                '到第20年现金价值大概能到 151万+📈\n'
+                '重点不是"赚多快"，而是确定增长 + 可规划🗓️\n\n'
+                '🧩配置思路：别押单一资产，稳才是王道\n'
+                '我更认可这种"分层配置"👇\n'
+                '🛡️ 60%：保险打底（家庭底盘/确定性）\n'
+                '🌿 30%：稳健资产（固收/高等级债/等）\n'
+                '🚀 10%：进取资产（股票/权益/高波动）\n'
+                '这样不管行情怎么折腾，都不至于慌到手抖😮‍💨\n\n'
+                '💬你们觉得：\n保险算不算靠谱的避险工具？\n'
+                '你会把"家庭底仓"放在哪里？评论区聊聊👇✨\n\n'
+                '#黄金投资 #保险避险 #资产配置 #理财干货 #家庭理财 #稳稳的安全感'
+            ),
+            "media_files": [], "media_desc": "黄金暴跌历史图+保险配置信息图", "style_note": "热点切入，不硬推，科普为主"
         },
         {
             "platform": "客户经营", "time": "09:30", "title": "客户互动经营（10人）", "enabled": True,
             "card_summary": "老客维系 4｜潜力跟进 3｜生日/纪念日 2｜沉默唤醒 1，个性化私信触达",
             "post_content": "老客维系：体检权益到期提醒；潜力跟进：开门红年金险邀约；生日触达：专属问候卡；沉默唤醒：新年关怀祝福。",
-            "media_desc": "", "style_note": "个性化，不群发，自然触达"
+            "media_files": [], "media_desc": "", "style_note": "个性化，不群发，自然触达"
         },
         {
             "platform": "客户经营", "time": "10:20", "title": "高潜面谈邀约（10人）", "enabled": True,
             "card_summary": "推荐邀约窗口：下周五 14-17点｜周六 10-12点。附话术+预判异议，支持批量发送",
             "post_content": "推荐邀约窗口：下周五 14–17点｜周六 10–12点。附话术+预判异议，支持批量发送。",
-            "media_desc": "", "style_note": "简洁利落，给明确选择"
+            "media_files": [], "media_desc": "", "style_note": "简洁利落，给明确选择"
         },
         {
             "platform": "面谈", "time": "15:00", "title": "面谈：王姐 @ 星巴克", "enabled": True,
             "card_summary": "家庭健康保障规划（重疾险为主）｜40分钟｜目标：当场确定预算与保障优先级",
             "post_content": "家庭健康保障规划（重疾险为主）｜40分钟｜目标：当场确定预算与保障优先级。已备3套方案+《重疾险3分钟看懂卡》。",
-            "media_desc": "", "style_note": "用生活化表达，避免专业术语"
+            "media_files": [], "media_desc": "", "style_note": "用生活化表达，避免专业术语"
         },
     ]
 }
@@ -382,6 +423,93 @@ HTML = r"""<!DOCTYPE html>
   .adv-toggle:hover { color: var(--accent); }
   .adv-section { display: none; gap: 10px; flex-direction: column; }
   .adv-section.open { display: flex; }
+
+  /* ── Image upload widget (multi-image) ── */
+  .img-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .img-thumb {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+  }
+  .img-thumb img {
+    width: 100%; height: 100%; object-fit: cover;
+  }
+  .img-thumb .img-del {
+    position: absolute;
+    top: 3px; right: 3px;
+    width: 18px; height: 18px;
+    background: rgba(0,0,0,.55);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    font-size: 11px;
+    line-height: 18px;
+    text-align: center;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .img-add-slot {
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+    border: 1.5px dashed var(--border);
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+    font-size: 22px;
+    color: var(--sub);
+    flex-shrink: 0;
+  }
+  .img-add-slot:hover { border-color: var(--accent); background: rgba(0,122,255,.04); }
+  .img-add-slot span { font-size: 10px; color: var(--sub); margin-top: 2px; }
+  .img-uploading { font-size: 11px; color: var(--accent); }
+  .img-upload-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity .15s;
+  }
+  .img-upload-btn:hover { opacity: .85; }
+  .img-clear-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 5px 14px;
+    font-size: 13px;
+    color: var(--danger);
+    cursor: pointer;
+    transition: background .15s;
+    display: none;
+  }
+  .img-clear-btn:hover { background: rgba(255,59,48,.07); }
+  .img-clear-btn.visible { display: block; }
+  .img-name {
+    font-size: 11px;
+    color: var(--sub);
+    word-break: break-all;
+  }
 
   .add-row-btn {
     display: flex;
@@ -757,10 +885,93 @@ function makeSchedItem(row, i) {
     row.card_summary || '', 'sched-summary'
   ));
 
+  // ── Multi-image upload widget ──
+  const imgBlock = document.createElement('div');
+  const imgLbl = document.createElement('div');
+  imgLbl.className = 'sched-field-label';
+  imgLbl.textContent = '配图（可多张）';
+  imgBlock.appendChild(imgLbl);
+
+  // Grid container holds thumbnail slots + add button
+  const imgGrid = document.createElement('div');
+  imgGrid.className = 'img-grid';
+  imgGrid.dataset.key = 'media_files';
+
+  // Hidden file input (reused for each upload)
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/*';
+  fileInput.multiple = true;
+  fileInput.style.display = 'none';
+  imgGrid.appendChild(fileInput);
+
+  // Render existing saved images
+  const existingFiles = Array.isArray(row.media_files) ? row.media_files
+    : (row.media_file ? [row.media_file] : []);
+
+  function addThumb(filename) {
+    const thumb = document.createElement('div');
+    thumb.className = 'img-thumb';
+    thumb.dataset.filename = filename;
+    const img = document.createElement('img');
+    img.src = '/media/' + filename;
+    const delBtn = document.createElement('button');
+    delBtn.className = 'img-del';
+    delBtn.type = 'button';
+    delBtn.textContent = '×';
+    delBtn.onclick = () => thumb.remove();
+    thumb.appendChild(img);
+    thumb.appendChild(delBtn);
+    // Insert before the add-slot
+    const addSlot = imgGrid.querySelector('.img-add-slot');
+    imgGrid.insertBefore(thumb, addSlot);
+  }
+
+  existingFiles.filter(Boolean).forEach(addThumb);
+
+  // "+" add slot
+  const addSlot = document.createElement('div');
+  addSlot.className = 'img-add-slot';
+  addSlot.innerHTML = '＋<span>添加图片</span>';
+  addSlot.onclick = () => fileInput.click();
+  imgGrid.appendChild(addSlot);
+
+  // Status text
+  const statusSpan = document.createElement('div');
+  statusSpan.className = 'img-name';
+  imgGrid.appendChild(statusSpan);
+
+  // Wire file selection → upload (supports multiple files)
+  fileInput.onchange = async () => {
+    const files = Array.from(fileInput.files);
+    if (!files.length) return;
+    statusSpan.innerHTML = '<span class="img-uploading">上传中...</span>';
+    for (const file of files) {
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        const res = await fetch('/api/upload', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.ok) {
+          addThumb(data.filename);
+        } else {
+          statusSpan.textContent = '上传失败：' + (data.error || '');
+        }
+      } catch(e) {
+        statusSpan.textContent = '上传失败';
+      }
+    }
+    statusSpan.textContent = '';
+    fileInput.value = '';
+  };
+
+  imgBlock.appendChild(imgGrid);
+  contentDiv.appendChild(imgBlock);
+
   // Advanced toggle
   const advToggle = document.createElement('span');
   advToggle.className = 'adv-toggle';
-  advToggle.innerHTML = '▸ 配图 / 风格备注';
+  advToggle.innerHTML = '▸ 配图说明 / 风格备注';
 
   const advSection = document.createElement('div');
   advSection.className = 'adv-section';
@@ -794,7 +1005,7 @@ function addScheduleRow() {
   const body = document.getElementById('schedule-body');
   body.appendChild(makeSchedItem(
     {platform:'朋友圈',time:'10:00',title:'',enabled:true,
-     card_summary:'',post_content:'',media_desc:'',style_note:''},
+     card_summary:'',post_content:'',media_files:[],media_desc:'',style_note:''},
     body.children.length
   ));
 }
@@ -806,6 +1017,11 @@ function collectSchedule() {
       const el = item.querySelector(`[data-key="${key}"]`);
       return el ? (el.type === 'checkbox' ? el.checked : el.value) : '';
     };
+    // Collect media_files array from thumbnail data attributes
+    const grid = item.querySelector('[data-key="media_files"]');
+    const mediaFiles = grid
+      ? Array.from(grid.querySelectorAll('.img-thumb')).map(t => t.dataset.filename).filter(Boolean)
+      : [];
     rows.push({
       time:         get('time'),
       platform:     get('platform'),
@@ -813,6 +1029,7 @@ function collectSchedule() {
       enabled:      get('enabled'),
       card_summary: get('card_summary'),
       post_content: get('post_content'),
+      media_files:  mediaFiles,
       media_desc:   get('media_desc'),
       style_note:   get('style_note'),
     });
@@ -905,6 +1122,22 @@ class Handler(BaseHTTPRequestHandler):
             self.send_html(HTML)
         elif path == "/api/config":
             self.send_json(load_config())
+        elif path.startswith("/media/"):
+            filename = os.path.basename(path[7:])
+            filepath = os.path.join(MEDIA_DIR, filename)
+            if filename and os.path.isfile(filepath):
+                mime = mimetypes.guess_type(filepath)[0] or "application/octet-stream"
+                with open(filepath, "rb") as f:
+                    data = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", mime)
+                self.send_header("Content-Length", len(data))
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(data)
+            else:
+                self.send_response(404)
+                self.end_headers()
         else:
             self.send_response(404)
             self.end_headers()
@@ -920,6 +1153,37 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json({"ok": True})
             except Exception as e:
                 self.send_json({"ok": False, "error": str(e)}, status=400)
+        elif path == "/api/upload":
+            try:
+                ctype = self.headers.get("Content-Type", "")
+                length = int(self.headers.get("Content-Length", 0))
+                # cgi.FieldStorage needs environ dict
+                environ = {
+                    "REQUEST_METHOD": "POST",
+                    "CONTENT_TYPE": ctype,
+                    "CONTENT_LENGTH": str(length),
+                }
+                fs = cgi.FieldStorage(
+                    fp=self.rfile,
+                    headers=self.headers,
+                    environ=environ,
+                )
+                item = fs.getvalue("file") if "file" in fs else None
+                if item is None:
+                    self.send_json({"ok": False, "error": "no file"}, status=400)
+                    return
+                file_item = fs["file"]
+                orig_name = getattr(file_item, "filename", "") or "upload"
+                ext = os.path.splitext(orig_name)[1].lower()
+                if ext not in (".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic"):
+                    ext = ".jpg"
+                unique_name = uuid_mod.uuid4().hex[:12] + ext
+                dest = os.path.join(MEDIA_DIR, unique_name)
+                with open(dest, "wb") as f:
+                    f.write(file_item.file.read())
+                self.send_json({"ok": True, "filename": unique_name})
+            except Exception as e:
+                self.send_json({"ok": False, "error": str(e)}, status=500)
         else:
             self.send_response(404)
             self.end_headers()

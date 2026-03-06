@@ -86,6 +86,7 @@ struct ScheduleCard: Identifiable {
     let scheduledTime: Date
     var isPosted: Bool
     var isManualTrigger: Bool
+    var mediaFiles: [String]   // filenames served at /media/<filename> on backend
 
     init(
         id: UUID = UUID(),
@@ -94,7 +95,8 @@ struct ScheduleCard: Identifiable {
         content: String,
         scheduledTime: Date,
         isPosted: Bool = false,
-        isManualTrigger: Bool = false
+        isManualTrigger: Bool = false,
+        mediaFiles: [String] = []
     ) {
         self.id = id
         self.platform = platform
@@ -103,6 +105,7 @@ struct ScheduleCard: Identifiable {
         self.scheduledTime = scheduledTime
         self.isPosted = isPosted
         self.isManualTrigger = isManualTrigger
+        self.mediaFiles = mediaFiles
     }
 
     // Load from backend config dict. Returns nil if required fields are missing or item is disabled.
@@ -121,13 +124,22 @@ struct ScheduleCard: Identifiable {
         let today = Date()
         let scheduledTime = cal.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: today) ?? today
 
-        let title   = dict["title"]        as? String ?? ""
-        // card_summary is what shows on the schedule card; fall back to post_content
-        let content = (dict["card_summary"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-                   ?? dict["post_content"]  as? String
-                   ?? ""
+        let title     = dict["title"]       as? String ?? ""
+        let content   = (dict["card_summary"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                     ?? dict["post_content"] as? String
+                     ?? ""
+        // Support both media_files (array) and legacy media_file (single string)
+        let mediaFiles: [String]
+        if let arr = dict["media_files"] as? [String] {
+            mediaFiles = arr.filter { !$0.isEmpty }
+        } else if let single = dict["media_file"] as? String, !single.isEmpty {
+            mediaFiles = [single]
+        } else {
+            mediaFiles = []
+        }
 
-        return ScheduleCard(platform: platform, title: title, content: content, scheduledTime: scheduledTime)
+        return ScheduleCard(platform: platform, title: title, content: content,
+                            scheduledTime: scheduledTime, mediaFiles: mediaFiles)
     }
 
     static func todayCards() -> [ScheduleCard] {
@@ -153,8 +165,8 @@ struct ScheduleCard: Identifiable {
             ),
             ScheduleCard(
                 platform: .xiaohongshu,
-                title: "热点切入｜黄金波动",
-                content: "美以冲突升级→黄金/美元波动→年金险确定性规划科普。热点卡视觉，不硬推。",
+                title: "《黄金大涨后大跌！历史上6次黄金暴跌，我们该如何配置财富》",
+                content: "黄金历史暴跌复盘→保险作为确定性底仓的配置逻辑科普。引发互动，不硬推。",
                 scheduledTime: t(9, 10)
             ),
             ScheduleCard(

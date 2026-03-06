@@ -157,7 +157,8 @@ struct ConfirmExecuteSheet: View {
         .ignoresSafeArea()
         .sheet(isPresented: $showPreview) {
             ContentPreviewView(card: card, persona: persona,
-                               content: recommendedContent(platform: card.platform, persona: persona))
+                               content: recommendedContent(platform: card.platform, persona: persona),
+                               mediaFiles: card.mediaFiles)
                 .presentationDetents([.large])
         }
     }
@@ -169,6 +170,10 @@ struct ContentPreviewView: View {
     let card: ScheduleCard
     let persona: AgentPersona
     let content: String
+    var mediaFiles: [String] = []
+
+    // Always fetch fresh from backend when preview opens so we get the latest uploaded images
+    @State private var liveMediaFiles: [String] = []
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -188,6 +193,34 @@ struct ContentPreviewView: View {
             }
         }
         .preferredColorScheme(.light)
+        .onAppear { fetchLatestMediaFiles() }
+    }
+
+    // Pull the freshest media_files for this card from the backend each time the preview opens.
+    private func fetchLatestMediaFiles() {
+        // Start with whatever we already have
+        liveMediaFiles = mediaFiles
+        guard let url = URL(string: "http://localhost:8765/api/config") else { return }
+        var req = URLRequest(url: url, timeoutInterval: 3)
+        req.httpMethod = "GET"
+        URLSession.shared.dataTask(with: req) { data, _, _ in
+            guard let data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let schedule = json["schedule"] as? [[String: Any]] else { return }
+            let match = schedule.first {
+                ($0["platform"] as? String) == card.platform.rawValue &&
+                ($0["title"]    as? String) == card.title
+            }
+            let files: [String]
+            if let arr = match?["media_files"] as? [String] {
+                files = arr.filter { !$0.isEmpty }
+            } else if let single = match?["media_file"] as? String, !single.isEmpty {
+                files = [single]
+            } else {
+                files = []
+            }
+            DispatchQueue.main.async { liveMediaFiles = files }
+        }.resume()
     }
 
     @ViewBuilder
@@ -195,11 +228,11 @@ struct ContentPreviewView: View {
         let parsed = parseContent(content)
         switch card.platform {
         case .wechatMoments:
-            MomentsMockup(persona: persona, content: parsed, accentColor: card.platform.primaryColor)
+            MomentsMockup(persona: persona, content: parsed, accentColor: card.platform.primaryColor, mediaFile: liveMediaFiles.first ?? "")
         case .xiaohongshu:
-            XhsMockup(persona: persona, content: parsed, title: card.title, primaryColor: card.platform.primaryColor)
+            XhsMockup(persona: persona, content: parsed, title: card.title, primaryColor: card.platform.primaryColor, mediaFiles: liveMediaFiles)
         case .wechatOA:
-            OAMockup(persona: persona, content: parsed, title: card.title)
+            OAMockup(persona: persona, content: parsed, title: card.title, mediaFile: liveMediaFiles.first ?? "")
         case .wechatPrivate:
             PrivateMsgMockup(persona: persona, content: parsed)
         case .clientMgmt:
@@ -261,34 +294,64 @@ private func parseContent(_ raw: String) -> PostContent {
 private struct AttachmentCardView: View {
     let description: String
     let accentColor: Color
+    var mediaFile: String = ""
+
+    private var backendImageURL: URL? {
+        guard !mediaFile.isEmpty else { return nil }
+        return URL(string: "http://localhost:8765/media/\(mediaFile)")
+    }
 
     var body: some View {
         Group {
-            if description.contains("职场问候") {
-                ProfessionalGreetingCard()
-            } else if description.contains("温馨") {
-                WarmMorningCard()
-            } else if description.contains("创意") {
-                CreativeCard(accentColor: accentColor)
-            } else if description.contains("简约") || description.contains("知识卡") {
-                MinimalKnowledgeCard(accentColor: accentColor)
-            } else if description.contains("Vlog") {
-                VlogCoverCard(accentColor: accentColor)
-            } else if description.contains("对比信息图") {
-                ComparisonInfoCard(accentColor: accentColor)
-            } else if description.contains("信息图") {
-                SimpleInfoCard(accentColor: accentColor)
-            } else if description.contains("图文卡片") {
-                CardGridView(accentColor: accentColor)
-            } else if description.contains("封面") {
-                CoverCard(accentColor: accentColor, label: description)
-            } else if description.contains("故事封面") || description.contains("故事") {
-                StoryCoverCard()
+            if let url = backendImageURL {
+                // Real uploaded image from backend
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().scaledToFill()
+                    case .failure:
+                        placeholderCard
+                    case .empty:
+                        ZStack {
+                            Color(r: 0.92, g: 0.92, b: 0.94)
+                            ProgressView()
+                        }
+                    @unknown default:
+                        placeholderCard
+                    }
+                }
             } else {
-                GenericImageCard(accentColor: accentColor, label: description)
+                placeholderCard
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    @ViewBuilder
+    private var placeholderCard: some View {
+        if description.contains("职场问候") {
+            ProfessionalGreetingCard()
+        } else if description.contains("温馨") {
+            WarmMorningCard()
+        } else if description.contains("创意") {
+            CreativeCard(accentColor: accentColor)
+        } else if description.contains("简约") || description.contains("知识卡") {
+            MinimalKnowledgeCard(accentColor: accentColor)
+        } else if description.contains("Vlog") {
+            VlogCoverCard(accentColor: accentColor)
+        } else if description.contains("对比信息图") {
+            ComparisonInfoCard(accentColor: accentColor)
+        } else if description.contains("信息图") {
+            SimpleInfoCard(accentColor: accentColor)
+        } else if description.contains("图文卡片") {
+            CardGridView(accentColor: accentColor)
+        } else if description.contains("封面") {
+            CoverCard(accentColor: accentColor, label: description)
+        } else if description.contains("故事封面") || description.contains("故事") {
+            StoryCoverCard()
+        } else {
+            GenericImageCard(accentColor: accentColor, label: description)
+        }
     }
 }
 
@@ -589,6 +652,7 @@ private struct MomentsMockup: View {
     let persona: AgentPersona
     let content: PostContent
     let accentColor: Color
+    var mediaFile: String = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -627,8 +691,8 @@ private struct MomentsMockup: View {
                         .foregroundColor(Color(r: 0.12, g: 0.12, b: 0.12))
                         .lineSpacing(3)
 
-                    if !content.attachment.isEmpty {
-                        AttachmentCardView(description: content.attachment, accentColor: accentColor)
+                    if !content.attachment.isEmpty || !mediaFile.isEmpty {
+                        AttachmentCardView(description: content.attachment, accentColor: accentColor, mediaFile: mediaFile)
                             .frame(width: 180)
                     }
 
@@ -664,11 +728,11 @@ private struct XhsMockup: View {
     let content: PostContent
     let title: String
     let primaryColor: Color
+    var mediaFiles: [String] = []
 
     private let xhsRed  = Color(r: 1.0,  g: 0.141, b: 0.259)
     private let tagBlue = Color(r: 0.18,  g: 0.50,  b: 0.96)
     private let metaGray = Color(r: 0.56, g: 0.56,  b: 0.58)
-
 
     var body: some View {
         VStack(spacing: 0) {
@@ -704,17 +768,9 @@ private struct XhsMockup: View {
             .padding(.horizontal, 14).padding(.vertical, 10)
             .background(Color.white)
 
-            // ── 封面图（导航栏下方，全宽）──
-            Group {
-                if !content.attachment.isEmpty {
-                    AttachmentCardView(description: content.attachment, accentColor: primaryColor)
-                } else {
-                    LinearGradient(colors: [primaryColor, primaryColor.opacity(0.55)],
-                                   startPoint: .topLeading, endPoint: .bottomTrailing)
-                }
-            }
-            .frame(height: 260)
-            .clipped()
+            // ── 封面图区域 ──
+            xhsImageArea
+                .clipped()
 
             // ── 正文内容区 ──
             VStack(alignment: .leading, spacing: 10) {
@@ -731,7 +787,7 @@ private struct XhsMockup: View {
                     .lineSpacing(5)
 
                 // Hashtags（蓝色行内文字，和真实 XHS 一致）
-                Text("#家庭保障 #理财规划 #保险科普 #重疾险")
+                Text("#黄金投资 #保险避险 #资产配置 #理财干货 #家庭理财 #稳稳的安全感")
                     .font(.system(size: 14))
                     .foregroundColor(tagBlue)
 
@@ -832,6 +888,67 @@ private struct XhsMockup: View {
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
     }
+
+    // ── Image area: single full-width OR multi-image grid ──
+    @ViewBuilder
+    private var xhsImageArea: some View {
+        let hasMedia = !mediaFiles.isEmpty
+        let hasAttachment = !content.attachment.isEmpty
+
+        if mediaFiles.count == 1 {
+            // Single image — full width tall banner
+            AttachmentCardView(description: content.attachment, accentColor: primaryColor, mediaFile: mediaFiles[0])
+                .frame(height: 260)
+        } else if mediaFiles.count >= 2 {
+            // Multi-image grid (3-column, square cells)
+            let cols = min(mediaFiles.count, 3)
+            let gap: CGFloat = 3
+            GeometryReader { geo in
+                let cellSize = (geo.size.width - gap * CGFloat(cols - 1)) / CGFloat(cols)
+                let rows = Int(ceil(Double(mediaFiles.count) / Double(cols)))
+                VStack(spacing: gap) {
+                    ForEach(0..<rows, id: \.self) { row in
+                        HStack(spacing: gap) {
+                            ForEach(0..<cols, id: \.self) { col in
+                                let idx = row * cols + col
+                                if idx < mediaFiles.count {
+                                    AsyncImage(url: URL(string: "http://localhost:8765/media/\(mediaFiles[idx])")) { phase in
+                                        switch phase {
+                                        case .success(let img):
+                                            img.resizable().scaledToFill()
+                                        default:
+                                            Color(r: 0.90, g: 0.90, b: 0.92)
+                                        }
+                                    }
+                                    .frame(width: cellSize, height: cellSize)
+                                    .clipped()
+                                } else {
+                                    Color.clear.frame(width: cellSize, height: cellSize)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .frame(height: {
+                let gap: CGFloat = 3
+                let cols = CGFloat(min(mediaFiles.count, 3))
+                // Approximate cell size based on 390pt wide device
+                let approxCell = (390 - gap * (cols - 1)) / cols
+                let rows = CGFloat(Int(ceil(Double(mediaFiles.count) / Double(cols))))
+                return approxCell * rows + gap * (rows - 1)
+            }())
+        } else if hasAttachment {
+            // No real images but has attachment description — show placeholder
+            AttachmentCardView(description: content.attachment, accentColor: primaryColor, mediaFile: "")
+                .frame(height: 260)
+        } else {
+            // No images at all — gradient banner
+            LinearGradient(colors: [primaryColor, primaryColor.opacity(0.55)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+                .frame(height: 260)
+        }
+    }
 }
 
 // MARK: - WeChat OA Mockup
@@ -840,6 +957,7 @@ private struct OAMockup: View {
     let persona: AgentPersona
     let content: PostContent
     let title: String
+    var mediaFile: String = ""
 
     private let oaColor = Color(r: 0.471, g: 0.549, b: 0.714)
 
@@ -863,8 +981,8 @@ private struct OAMockup: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     // Header image
-                    if !content.attachment.isEmpty {
-                        AttachmentCardView(description: content.attachment, accentColor: oaColor)
+                    if !content.attachment.isEmpty || !mediaFile.isEmpty {
+                        AttachmentCardView(description: content.attachment, accentColor: oaColor, mediaFile: mediaFile)
                             .frame(height: 180)
                             .frame(maxWidth: .infinity)
                             .clipShape(Rectangle())
@@ -1223,7 +1341,7 @@ private func recommendedContent(platform: Platform, persona: AgentPersona) -> St
         return "风格：知识领袖\n「早安。复利的本质，不只是财富，也是健康与关系。今天的小积累，都在为未来铺路。」\n+ 一张简约知识卡"
 
     case (.xiaohongshu, .professional):
-        return "风格：专业顾问\n「保险规划的 3 个误区，很多人第一条就踩了｜干货分享」\n误区一：保额越高越好（错！保额要匹配收入与负债，不是越高越对）\n误区二：买了医疗险就够了（错！医疗险报销住院费，重疾险替代收入损失，两者不重叠）\n误区三：年轻人不需要保险（错！越年轻保费越低，核保越容易，拖到中年健康问题一堆）\n#重疾险 #保险避坑 #家庭保障规划\n+ 3 张图文卡片"
+        return "「别再把黄金当成\"稳稳的幸福\"了⚠️\n我真的花了3天把近40年数据翻了个底朝天📚\n结论：黄金的\"腰斩名场面\"比电视剧还抓马……💥\n看完这篇，你会比90%的炒金人更清醒🧠✨\n\n🪙黄金=乱世护身符，但不是\"稳赚神器\"\n黄金更像是极端情况下的保值工具：\n✅ 对抗货币贬值\n✅ 风险事件爆发时有机会顶一顶\n但它也有很现实的一面👇\n\n😵黄金风险暴露：跌起来真的不讲武德\n📉 历史上出现过单日跌超12%的情况\n⚡ 波动强到很多人根本扛不住\n🧨 而且政策/利率/预期一变，行情可能说崩就崩\n\n🛡️我更想要的是\"能睡得着\"的确定性\n这也是为什么很多家庭会用储蓄险做底仓：\n✅ 确定性收益（按合同走）\n✅ 时间规划（孩子教育/养老/家庭备用金）\n✅ \"隔离人性弱点\"（不追涨杀跌、不被情绪带着跑）\n\n📌避险逻辑：保险更像\"家庭理财的稳定基石\"\n📜 《保险法》框架下，合同权益更刚性\n🧱 还能做到一定程度的资产隔离（更适合做家庭底盘）\n（当然：具体以产品条款与个人情况为准～）\n\n🔁复利感受一下（仅供参考）\n假设：年缴10万×10年\n到第20年现金价值大概能到 151万+📈\n重点不是\"赚多快\"，而是确定增长 + 可规划🗓️\n\n🧩配置思路：别押单一资产，稳才是王道\n我更认可这种\"分层配置\"👇\n🛡️ 60%：保险打底（家庭底盘/确定性）\n🌿 30%：稳健资产（固收/高等级债/等）\n🚀 10%：进取资产（股票/权益/高波动）\n这样不管行情怎么折腾，都不至于慌到手抖😮‍💨\n\n💬你们觉得：\n保险算不算靠谱的避险工具？\n你会把\"家庭底仓\"放在哪里？评论区聊聊👇✨」"
     case (.xiaohongshu, .friendly):
         return "风格：生活达人\n「闺蜜问我：买保险真的有用吗？我用亲身经历告诉她」\n两年前，我妈查出乳腺结节，当时全家人都慌了。还好她五年前买了重疾险，整个治疗过程没让家里背债。那一刻我才真正理解：保险不是为了坏事发生，是让坏事发生时你还有选择权。\n#真实故事 #重疾险 #家庭保障\n+ 暖色系 Vlog 封面图"
     case (.xiaohongshu, .creative):

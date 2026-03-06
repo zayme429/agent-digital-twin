@@ -41,7 +41,8 @@ class ScheduleManager: ObservableObject {
                     let key = "\(card.platform.rawValue)|\(card.title)"
                     return postedIDs.contains(key)
                         ? ScheduleCard(id: card.id, platform: card.platform, title: card.title,
-                                       content: card.content, scheduledTime: card.scheduledTime, isPosted: true)
+                                       content: card.content, scheduledTime: card.scheduledTime,
+                                       isPosted: true, mediaFiles: card.mediaFiles)
                         : card
                 }
             }
