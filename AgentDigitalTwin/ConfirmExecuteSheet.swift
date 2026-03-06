@@ -171,15 +171,6 @@ struct ContentPreviewView: View {
     let content: String
     @Environment(\.dismiss) private var dismiss
 
-    // Full quoted body (keeps all lines inside 「」)
-    private var bodyText: String {
-        if let start = content.range(of: "「"),
-           let end   = content.range(of: "」", range: start.upperBound..<content.endIndex) {
-            return String(content[start.upperBound..<end.lowerBound])
-        }
-        return content
-    }
-
     private var styleTag: String {
         if let r = content.range(of: "风格："),
            let nl = content[r.upperBound...].range(of: "\n") {
@@ -191,37 +182,9 @@ struct ContentPreviewView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
-                    // Platform mockup
-                    platformMockup
-                        .padding(.horizontal, 16)
-                        .padding(.top, 16)
-
-                    // Full content card — always show everything
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "doc.plaintext.fill")
-                                .font(.system(size: 11))
-                                .foregroundColor(.secondary)
-                            Text("完整推荐内容")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(.secondary)
-                        }
-                        Text(content)
-                            .font(.system(size: 14))
-                            .foregroundColor(Color(r: 0.15, g: 0.13, b: 0.22))
-                            .lineSpacing(5)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .padding(16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14)
-                            .fill(Color.white)
-                            .shadow(color: Color.black.opacity(0.06), radius: 8, y: 2)
-                    )
+                platformMockup
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 40)
-                }
+                    .padding(.vertical, 16)
             }
             .background(Color(r: 0.94, g: 0.94, b: 0.96))
             .navigationTitle("\(card.platform.rawValue) · 内容预览")
@@ -238,10 +201,10 @@ struct ContentPreviewView: View {
     @ViewBuilder
     private var platformMockup: some View {
         switch card.platform {
-        case .wechatMoments:  MomentsMockup(persona: persona, text: bodyText, style: styleTag)
-        case .xiaohongshu:    XhsMockup(persona: persona, text: bodyText, title: card.title, style: styleTag, primaryColor: card.platform.primaryColor)
-        case .wechatOA:       OAMockup(persona: persona, text: bodyText, title: card.title, style: styleTag)
-        case .wechatPrivate:  PrivateMsgMockup(persona: persona, text: bodyText, style: styleTag)
+        case .wechatMoments:  MomentsMockup(persona: persona, text: content, style: styleTag)
+        case .xiaohongshu:    XhsMockup(persona: persona, text: content, title: card.title, style: styleTag, primaryColor: card.platform.primaryColor)
+        case .wechatOA:       OAMockup(persona: persona, text: content, title: card.title, style: styleTag)
+        case .wechatPrivate:  PrivateMsgMockup(persona: persona, text: content, style: styleTag)
         case .clientMgmt:     ClientMgmtMockup(text: content, primaryColor: card.platform.primaryColor)
         case .meeting:        MeetingMockup(text: content, title: card.title, primaryColor: card.platform.primaryColor)
         }
