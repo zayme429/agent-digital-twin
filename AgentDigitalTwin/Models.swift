@@ -105,6 +105,31 @@ struct ScheduleCard: Identifiable {
         self.isManualTrigger = isManualTrigger
     }
 
+    // Load from backend config dict. Returns nil if required fields are missing or item is disabled.
+    static func fromConfig(_ dict: [String: Any]) -> ScheduleCard? {
+        guard
+            let platformStr = dict["platform"] as? String,
+            let platform    = Platform(rawValue: platformStr),
+            let timeStr     = dict["time"] as? String,
+            (dict["enabled"] as? Bool) != false
+        else { return nil }
+
+        let parts = timeStr.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2 else { return nil }
+
+        let cal   = Calendar.current
+        let today = Date()
+        let scheduledTime = cal.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: today) ?? today
+
+        let title   = dict["title"]        as? String ?? ""
+        // card_summary is what shows on the schedule card; fall back to post_content
+        let content = (dict["card_summary"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                   ?? dict["post_content"]  as? String
+                   ?? ""
+
+        return ScheduleCard(platform: platform, title: title, content: content, scheduledTime: scheduledTime)
+    }
+
     static func todayCards() -> [ScheduleCard] {
         let cal   = Calendar.current
         let today = Date()

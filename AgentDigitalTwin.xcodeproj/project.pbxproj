@@ -26,6 +26,7 @@
 		002200000000000000000011 /* TodayOverviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 001100000000000000000011 /* TodayOverviewView.swift */; };
 		002200000000000000000012 /* ConfirmExecuteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 001100000000000000000012 /* ConfirmExecuteSheet.swift */; };
 		002200000000000000000013 /* SideDrawerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 001100000000000000000013 /* SideDrawerView.swift */; };
+		002200000000000000000014 /* CompanionChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 001100000000000000000014 /* CompanionChatView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -49,6 +50,7 @@
 		001100000000000000000011 /* TodayOverviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayOverviewView.swift; sourceTree = "<group>"; };
 		001100000000000000000012 /* ConfirmExecuteSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmExecuteSheet.swift; sourceTree = "<group>"; };
 		001100000000000000000013 /* SideDrawerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideDrawerView.swift; sourceTree = "<group>"; };
+		001100000000000000000014 /* CompanionChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionChatView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -90,6 +92,7 @@
 				001100000000000000000011 /* TodayOverviewView.swift */,
 				001100000000000000000012 /* ConfirmExecuteSheet.swift */,
 				001100000000000000000013 /* SideDrawerView.swift */,
+				001100000000000000000014 /* CompanionChatView.swift */,
 				00110000000000000000000A /* Assets.xcassets */,
 				AAABBBC0D0E0F1A2B3C4D5EC /* Preview Content */,
 			);
@@ -200,6 +203,7 @@
 				002200000000000000000011 /* TodayOverviewView.swift in Sources */,
 				002200000000000000000012 /* ConfirmExecuteSheet.swift in Sources */,
 				002200000000000000000013 /* SideDrawerView.swift in Sources */,
+				002200000000000000000014 /* CompanionChatView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

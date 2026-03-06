@@ -11,10 +11,41 @@ class ScheduleManager: ObservableObject {
 
     init() {
         initializeDay()
+        loadFromBackend()   // Try to refresh cards from backend config
         timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             self?.checkDayRollover()
             self?.checkForDueCards()
         }
+    }
+
+    // MARK: - Backend sync
+
+    private func loadFromBackend() {
+        guard let url = URL(string: "http://localhost:8765/api/config") else { return }
+        var request = URLRequest(url: url, timeoutInterval: 3)
+        request.httpMethod = "GET"
+        URLSession.shared.dataTask(with: request) { [weak self] data, _, error in
+            guard let self else { return }
+            guard error == nil, let data else { return }
+            guard
+                let json     = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let schedule = json["schedule"] as? [[String: Any]]
+            else { return }
+            let loaded = schedule.compactMap { ScheduleCard.fromConfig($0) }
+                                 .sorted { $0.scheduledTime < $1.scheduledTime }
+            guard !loaded.isEmpty else { return }
+            DispatchQueue.main.async {
+                // Preserve any already-posted state by matching titles + times
+                let postedIDs = Set(self.cards.filter(\.isPosted).map { "\($0.platform.rawValue)|\($0.title)" })
+                self.cards = loaded.map { card in
+                    let key = "\(card.platform.rawValue)|\(card.title)"
+                    return postedIDs.contains(key)
+                        ? ScheduleCard(id: card.id, platform: card.platform, title: card.title,
+                                       content: card.content, scheduledTime: card.scheduledTime, isPosted: true)
+                        : card
+                }
+            }
+        }.resume()
     }
 
     // MARK: - Day session

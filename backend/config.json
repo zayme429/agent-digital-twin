@@ -1,0 +1,61 @@
+{
+  "llm": {
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-6",
+    "api_key": "",
+    "base_url": "https://api.anthropic.com",
+    "temperature": 0.7,
+    "max_tokens": 2048
+  },
+  "persona": {
+    "name": "林晓薇",
+    "tone": "professional",
+    "bio": "10年寿险顾问 | 专注家庭财富保障规划",
+    "brand_keywords": "保险规划,家庭保障,专业顾问,重疾险,年金险"
+  },
+  "content": {
+    "auto_generate": true,
+    "review_before_post": true,
+    "moments_daily": 1,
+    "xhs_daily": 1,
+    "oa_weekly": 1
+  },
+  "schedule": [
+    {
+      "platform": "朋友圈", "time": "08:45", "title": "早安问候", "enabled": true,
+      "post_content": "早安。好的保障不是等风险来了才想起，而是在平静日常里把底盘打稳。愿你今天忙而不乱，稳而有底。",
+      "media_desc": "一张职场问候帖",
+      "style_note": "专业顾问风格，温暖不说教"
+    },
+    {
+      "platform": "微信私聊", "time": "09:00", "title": "跟进：张总重疾险签约", "enabled": true,
+      "post_content": "张总，核保结果出来了：可以正常承保，肝癌项做除外责任。其余重疾保障不受影响，确认后我发您签约链接。",
+      "media_desc": "",
+      "style_note": "专业简洁，安抚情绪，推动签约"
+    },
+    {
+      "platform": "小红书", "time": "09:10", "title": "热点切入｜黄金波动", "enabled": true,
+      "post_content": "美以冲突升级 → 黄金/美元剧烈波动。市场越动荡，年金险的「确定性」越珍贵。今天聊聊怎么用年金险对冲不确定性。",
+      "media_desc": "极简对比信息图：黄金波动 vs 年金确定性",
+      "style_note": "热点切入，不硬推，科普为主"
+    },
+    {
+      "platform": "客户经营", "time": "09:30", "title": "客户互动经营（10人）", "enabled": true,
+      "post_content": "老客维系：体检权益到期提醒；潜力跟进：开门红年金险邀约；生日触达：专属问候卡；沉默唤醒：新年关怀祝福。",
+      "media_desc": "",
+      "style_note": "个性化，不群发，自然触达"
+    },
+    {
+      "platform": "客户经营", "time": "10:20", "title": "高潜面谈邀约（10人）", "enabled": true,
+      "post_content": "推荐邀约窗口：下周五 14–17点｜周六 10–12点。附话术+预判异议，支持批量发送。",
+      "media_desc": "",
+      "style_note": "简洁利落，给明确选择"
+    },
+    {
+      "platform": "面谈", "time": "15:00", "title": "面谈：王姐 @ 星巴克", "enabled": true,
+      "post_content": "家庭健康保障规划（重疾险为主）｜40分钟｜目标：当场确定预算与保障优先级。已备3套方案+《重疾险3分钟看懂卡》。",
+      "media_desc": "",
+      "style_note": "用生活化表达，避免专业术语"
+    }
+  ]
+}

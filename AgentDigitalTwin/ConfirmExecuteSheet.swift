@@ -171,14 +171,6 @@ struct ContentPreviewView: View {
     let content: String
     @Environment(\.dismiss) private var dismiss
 
-    private var styleTag: String {
-        if let r = content.range(of: "风格："),
-           let nl = content[r.upperBound...].range(of: "\n") {
-            return String(content[r.upperBound..<nl.lowerBound])
-        }
-        return persona.name
-    }
-
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -200,14 +192,394 @@ struct ContentPreviewView: View {
 
     @ViewBuilder
     private var platformMockup: some View {
+        let parsed = parseContent(content)
         switch card.platform {
-        case .wechatMoments:  MomentsMockup(persona: persona, text: content, style: styleTag)
-        case .xiaohongshu:    XhsMockup(persona: persona, text: content, title: card.title, style: styleTag, primaryColor: card.platform.primaryColor)
-        case .wechatOA:       OAMockup(persona: persona, text: content, title: card.title, style: styleTag)
-        case .wechatPrivate:  PrivateMsgMockup(persona: persona, text: content, style: styleTag)
-        case .clientMgmt:     ClientMgmtMockup(text: content, primaryColor: card.platform.primaryColor)
-        case .meeting:        MeetingMockup(text: content, title: card.title, primaryColor: card.platform.primaryColor)
+        case .wechatMoments:
+            MomentsMockup(persona: persona, content: parsed, accentColor: card.platform.primaryColor)
+        case .xiaohongshu:
+            XhsMockup(persona: persona, content: parsed, title: card.title, primaryColor: card.platform.primaryColor)
+        case .wechatOA:
+            OAMockup(persona: persona, content: parsed, title: card.title)
+        case .wechatPrivate:
+            PrivateMsgMockup(persona: persona, content: parsed)
+        case .clientMgmt:
+            ClientMgmtMockup(text: content, primaryColor: card.platform.primaryColor)
+        case .meeting:
+            MeetingMockup(text: content, title: card.title, primaryColor: card.platform.primaryColor)
         }
+    }
+}
+
+// MARK: - Parsed Content
+
+private struct PostContent {
+    let body: String
+    let attachment: String
+}
+
+private func parseContent(_ raw: String) -> PostContent {
+    let lines = raw.components(separatedBy: "\n")
+
+    // Extract attachment from line starting with "+ "
+    var attachment = ""
+    for line in lines {
+        let t = line.trimmingCharacters(in: .whitespaces)
+        if t.hasPrefix("+ ") {
+            attachment = String(t.dropFirst(2))
+            break
+        }
+    }
+
+    // Build body: text inside 「」 + any extra lines between 」 and the "+ " attachment
+    var bodyParts: [String] = []
+    if let open = raw.range(of: "「"),
+       let close = raw.range(of: "」", options: .backwards) {
+        // Text inside the outermost brackets
+        bodyParts.append(String(raw[open.upperBound..<close.lowerBound]))
+        // Any lines after 」 that aren't the attachment or style tag
+        let after = String(raw[close.upperBound...])
+        for line in after.components(separatedBy: "\n") {
+            let t = line.trimmingCharacters(in: .whitespaces)
+            if t.isEmpty || t.hasPrefix("+ ") || t.hasPrefix("风格：") { continue }
+            bodyParts.append(t)
+        }
+    } else {
+        // Fallback: drop 风格 and attachment lines
+        for line in lines {
+            let t = line.trimmingCharacters(in: .whitespaces)
+            if t.isEmpty || t.hasPrefix("风格：") || t.hasPrefix("+ ") { continue }
+            bodyParts.append(t)
+        }
+    }
+
+    let body = bodyParts.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    return PostContent(body: body, attachment: attachment)
+}
+
+// MARK: - Attachment Card
+
+private struct AttachmentCardView: View {
+    let description: String
+    let accentColor: Color
+
+    var body: some View {
+        Group {
+            if description.contains("职场问候") {
+                ProfessionalGreetingCard()
+            } else if description.contains("温馨") {
+                WarmMorningCard()
+            } else if description.contains("创意") {
+                CreativeCard(accentColor: accentColor)
+            } else if description.contains("简约") || description.contains("知识卡") {
+                MinimalKnowledgeCard(accentColor: accentColor)
+            } else if description.contains("Vlog") {
+                VlogCoverCard(accentColor: accentColor)
+            } else if description.contains("对比信息图") {
+                ComparisonInfoCard(accentColor: accentColor)
+            } else if description.contains("信息图") {
+                SimpleInfoCard(accentColor: accentColor)
+            } else if description.contains("图文卡片") {
+                CardGridView(accentColor: accentColor)
+            } else if description.contains("封面") {
+                CoverCard(accentColor: accentColor, label: description)
+            } else if description.contains("故事封面") || description.contains("故事") {
+                StoryCoverCard()
+            } else {
+                GenericImageCard(accentColor: accentColor, label: description)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+// 职场问候帖 — dark navy professional greeting
+private struct ProfessionalGreetingCard: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: [Color(r: 0.10, g: 0.13, b: 0.22), Color(r: 0.18, g: 0.22, b: 0.36)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+            VStack(spacing: 10) {
+                Text("早安")
+                    .font(.system(size: 48, weight: .black, design: .rounded))
+                    .foregroundColor(.white)
+                Rectangle()
+                    .fill(Color.white.opacity(0.35))
+                    .frame(width: 48, height: 1.5)
+                Text("Good Morning")
+                    .font(.system(size: 13, weight: .light))
+                    .tracking(3)
+                    .foregroundColor(Color.white.opacity(0.6))
+            }
+        }
+        .frame(height: 180)
+    }
+}
+
+// 温馨早安图 — warm peach gradient
+private struct WarmMorningCard: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: [Color(r: 1.0, g: 0.82, b: 0.64), Color(r: 0.99, g: 0.65, b: 0.45)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+            VStack(spacing: 8) {
+                Image(systemName: "sun.and.horizon.fill")
+                    .font(.system(size: 44))
+                    .foregroundColor(Color.white.opacity(0.85))
+                Text("早安，新的一天")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundColor(Color.white.opacity(0.9))
+            }
+        }
+        .frame(height: 180)
+    }
+}
+
+// 创意排版问候卡 — colorful bold
+private struct CreativeCard: View {
+    let accentColor: Color
+    var body: some View {
+        ZStack {
+            Color(r: 0.97, g: 0.97, b: 0.99)
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    accentColor.opacity(0.7).frame(height: 80)
+                    Color(r: 0.98, g: 0.55, b: 0.22).opacity(0.7).frame(height: 80)
+                }
+                HStack(spacing: 0) {
+                    Color(r: 0.25, g: 0.72, b: 0.58).opacity(0.7).frame(height: 80)
+                    Color(r: 0.97, g: 0.85, b: 0.24).opacity(0.7).frame(height: 80)
+                }
+            }
+            Text("创意问候")
+                .font(.system(size: 26, weight: .black, design: .rounded))
+                .foregroundColor(.white)
+                .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
+        }
+        .frame(height: 160)
+    }
+}
+
+// 简约知识卡 — minimal white card
+private struct MinimalKnowledgeCard: View {
+    let accentColor: Color
+    var body: some View {
+        ZStack {
+            Color.white
+            VStack(alignment: .leading, spacing: 8) {
+                Rectangle()
+                    .fill(accentColor)
+                    .frame(width: 32, height: 3)
+                Text("今日洞察")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(accentColor)
+                    .tracking(2)
+                Text("复利的本质\n不只是财富")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(Color(r: 0.10, g: 0.10, b: 0.12))
+                    .lineSpacing(4)
+                Spacer()
+                HStack(spacing: 4) {
+                    ForEach(["#规划", "#保障", "#财富"], id: \.self) { t in
+                        Text(t).font(.system(size: 10)).foregroundColor(accentColor.opacity(0.8))
+                    }
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(height: 160)
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(r: 0.90, g: 0.90, b: 0.93), lineWidth: 1))
+    }
+}
+
+// Vlog封面图 — video-style cover
+private struct VlogCoverCard: View {
+    let accentColor: Color
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: [Color(r: 1.0, g: 0.55, b: 0.55), accentColor.opacity(0.8)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+            VStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(Color.white.opacity(0.25))
+                        .frame(width: 56, height: 56)
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.white)
+                        .offset(x: 2)
+                }
+                Text("真实故事")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(.white)
+                Text("Vlog")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.7))
+                    .tracking(2)
+            }
+        }
+        .frame(height: 180)
+    }
+}
+
+// 对比信息图 — two-column comparison
+private struct ComparisonInfoCard: View {
+    let accentColor: Color
+    private let rows = [("保障范围", "100种重疾", "住院费用"), ("保额", "50万", "按实报销"), ("缴费", "20年", "年缴")]
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                Text("重疾险")
+                    .font(.system(size: 13, weight: .bold)).foregroundColor(.white)
+                    .frame(maxWidth: .infinity).padding(.vertical, 10)
+                    .background(accentColor)
+                Text("医疗险")
+                    .font(.system(size: 13, weight: .bold)).foregroundColor(.white)
+                    .frame(maxWidth: .infinity).padding(.vertical, 10)
+                    .background(accentColor.opacity(0.65))
+            }
+            ForEach(rows, id: \.0) { row in
+                HStack(spacing: 0) {
+                    Text(row.1)
+                        .font(.system(size: 12)).foregroundColor(Color(r: 0.15, g: 0.15, b: 0.15))
+                        .frame(maxWidth: .infinity).padding(.vertical, 8)
+                        .background(accentColor.opacity(0.05))
+                    Divider()
+                    Text(row.2)
+                        .font(.system(size: 12)).foregroundColor(Color(r: 0.15, g: 0.15, b: 0.15))
+                        .frame(maxWidth: .infinity).padding(.vertical, 8)
+                    Divider()
+                }
+            }
+            HStack {
+                Text("一图读懂：重疾险 vs 医疗险")
+                    .font(.system(size: 10)).foregroundColor(.secondary)
+                Spacer()
+            }
+            .padding(.horizontal, 10).padding(.vertical, 6)
+            .background(Color(r: 0.96, g: 0.96, b: 0.98))
+        }
+        .background(Color.white)
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(r: 0.90, g: 0.90, b: 0.93), lineWidth: 1))
+    }
+}
+
+// 信息图 — simple bar chart
+private struct SimpleInfoCard: View {
+    let accentColor: Color
+    private let bars: [(String, CGFloat)] = [("保障", 0.9), ("收益", 0.6), ("流动", 0.4), ("省税", 0.7)]
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("规划维度评分")
+                .font(.system(size: 12, weight: .bold)).foregroundColor(Color(r: 0.10, g: 0.10, b: 0.12))
+            HStack(alignment: .bottom, spacing: 12) {
+                ForEach(bars, id: \.0) { item in
+                    VStack(spacing: 4) {
+                        Text(Int(item.1 * 100).description)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(accentColor)
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(accentColor.opacity(0.15 + item.1 * 0.55))
+                            .frame(width: 32, height: item.1 * 80)
+                        Text(item.0)
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .padding(16)
+        .background(Color.white)
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(r: 0.90, g: 0.90, b: 0.93), lineWidth: 1))
+    }
+}
+
+// 图文卡片 — 2x2 grid
+private struct CardGridView: View {
+    let accentColor: Color
+    private let items = ["误区一", "误区二", "误区三", "总结"]
+    private let subtitles = ["保额越高越好", "买医保够了", "年纪大再买", "综合规划更稳"]
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+            ForEach(0..<4, id: \.self) { i in
+                VStack(spacing: 4) {
+                    Text(items[i])
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                    Text(subtitles[i])
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.8))
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(RoundedRectangle(cornerRadius: 8).fill(accentColor.opacity(0.6 + Double(i) * 0.1)))
+            }
+        }
+        .padding(8)
+        .background(Color(r: 0.97, g: 0.97, b: 0.99))
+    }
+}
+
+// 封面 — large gradient cover
+private struct CoverCard: View {
+    let accentColor: Color
+    let label: String
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: [accentColor, accentColor.opacity(0.5)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+            VStack(spacing: 8) {
+                Image(systemName: "doc.richtext.fill")
+                    .font(.system(size: 36))
+                    .foregroundColor(.white.opacity(0.7))
+                Text(label)
+                    .font(.system(size: 13))
+                    .foregroundColor(.white.opacity(0.8))
+            }
+        }
+        .frame(height: 180)
+    }
+}
+
+// 故事封面
+private struct StoryCoverCard: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: [Color(r: 1.0, g: 0.78, b: 0.55), Color(r: 0.95, g: 0.55, b: 0.40)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+            VStack(spacing: 8) {
+                Image(systemName: "book.fill")
+                    .font(.system(size: 36))
+                    .foregroundColor(.white.opacity(0.8))
+                Text("真实故事")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.9))
+            }
+        }
+        .frame(height: 180)
+    }
+}
+
+// Generic fallback card
+private struct GenericImageCard: View {
+    let accentColor: Color
+    let label: String
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: [accentColor.opacity(0.6), accentColor.opacity(0.3)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+            VStack(spacing: 8) {
+                Image(systemName: "photo.fill")
+                    .font(.system(size: 32))
+                    .foregroundColor(.white.opacity(0.75))
+                Text(label)
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.8))
+            }
+        }
+        .frame(height: 160)
     }
 }
 
@@ -215,8 +587,8 @@ struct ContentPreviewView: View {
 
 private struct MomentsMockup: View {
     let persona: AgentPersona
-    let text: String
-    let style: String
+    let content: PostContent
+    let accentColor: Color
 
     var body: some View {
         VStack(spacing: 0) {
@@ -250,32 +622,18 @@ private struct MomentsMockup: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(Color(r: 0.32, g: 0.45, b: 0.68))
 
-                    Text(text)
+                    Text(content.body)
                         .font(.system(size: 14))
                         .foregroundColor(Color(r: 0.12, g: 0.12, b: 0.12))
                         .lineSpacing(3)
 
-                    // Image placeholder
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(LinearGradient(colors: persona.tone.gradientColors.map { $0.opacity(0.55) },
-                                             startPoint: .topLeading, endPoint: .bottomTrailing))
-                        .frame(width: 160, height: 160)
-                        .overlay(
-                            VStack(spacing: 6) {
-                                Image(systemName: "photo.fill")
-                                    .font(.system(size: 28))
-                                    .foregroundColor(.white.opacity(0.8))
-                                Text("问候贴图")
-                                    .font(.system(size: 11))
-                                    .foregroundColor(.white.opacity(0.7))
-                            }
-                        )
+                    if !content.attachment.isEmpty {
+                        AttachmentCardView(description: content.attachment, accentColor: accentColor)
+                            .frame(width: 180)
+                    }
 
-                    // Style tag + time
+                    // Time
                     HStack {
-                        Text("风格：\(style)")
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary)
                         Spacer()
                         Text("刚刚")
                             .font(.system(size: 11))
@@ -303,88 +661,173 @@ private struct MomentsMockup: View {
 
 private struct XhsMockup: View {
     let persona: AgentPersona
-    let text: String
+    let content: PostContent
     let title: String
-    let style: String
     let primaryColor: Color
+
+    private let xhsRed  = Color(r: 1.0,  g: 0.141, b: 0.259)
+    private let tagBlue = Color(r: 0.18,  g: 0.50,  b: 0.96)
+    private let metaGray = Color(r: 0.56, g: 0.56,  b: 0.58)
+
 
     var body: some View {
         VStack(spacing: 0) {
-            // Cover image
-            ZStack(alignment: .bottomLeading) {
-                LinearGradient(colors: [primaryColor, primaryColor.opacity(0.5)],
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
-                    .frame(height: 240)
-                    .overlay(
-                        VStack(spacing: 8) {
-                            Image(systemName: "heart.fill")
-                                .font(.system(size: 40))
-                                .foregroundColor(.white.opacity(0.6))
-                            Text("封面图")
-                                .font(.system(size: 13))
-                                .foregroundColor(.white.opacity(0.7))
-                        }
-                    )
 
-                // Gradient overlay at bottom
-                LinearGradient(colors: [.clear, .black.opacity(0.4)],
-                               startPoint: .top, endPoint: .bottom)
-                    .frame(height: 240)
+            // ── 顶部导航（白底，独立于图片）──
+            HStack(spacing: 10) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(Color(r: 0.15, g: 0.15, b: 0.15))
+
+                Circle()
+                    .fill(LinearGradient(colors: persona.tone.gradientColors,
+                                         startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 34, height: 34)
+                    .overlay(Text(persona.emoji).font(.system(size: 17)))
+
+                Text(persona.name)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(Color(r: 0.10, g: 0.10, b: 0.10))
+
+                Spacer()
+
+                Text("关注")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(xhsRed)
+                    .padding(.horizontal, 16).padding(.vertical, 6)
+                    .overlay(Capsule().stroke(xhsRed, lineWidth: 1.5))
+
+                Image(systemName: "arrowshape.turn.up.right")
+                    .font(.system(size: 16))
+                    .foregroundColor(Color(r: 0.35, g: 0.35, b: 0.35))
             }
+            .padding(.horizontal, 14).padding(.vertical, 10)
+            .background(Color.white)
 
-            // Content area
-            VStack(alignment: .leading, spacing: 12) {
-                // Author row
-                HStack(spacing: 8) {
+            // ── 封面图（导航栏下方，全宽）──
+            Group {
+                if !content.attachment.isEmpty {
+                    AttachmentCardView(description: content.attachment, accentColor: primaryColor)
+                } else {
+                    LinearGradient(colors: [primaryColor, primaryColor.opacity(0.55)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                }
+            }
+            .frame(height: 260)
+            .clipped()
+
+            // ── 正文内容区 ──
+            VStack(alignment: .leading, spacing: 10) {
+                // 大标题
+                Text(title)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(Color(r: 0.08, g: 0.08, b: 0.08))
+                    .lineSpacing(3)
+
+                // 正文
+                Text(content.body)
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(r: 0.15, g: 0.15, b: 0.15))
+                    .lineSpacing(5)
+
+                // Hashtags（蓝色行内文字，和真实 XHS 一致）
+                Text("#家庭保障 #理财规划 #保险科普 #重疾险")
+                    .font(.system(size: 14))
+                    .foregroundColor(tagBlue)
+
+                // 时间 + 地点 + 不喜欢
+                HStack {
+                    Text("刚刚 · 广东")
+                        .font(.system(size: 12))
+                        .foregroundColor(metaGray)
+                    Spacer()
+                    HStack(spacing: 4) {
+                        Image(systemName: "hand.thumbsdown")
+                            .font(.system(size: 12))
+                        Text("不喜欢")
+                            .font(.system(size: 12))
+                    }
+                    .foregroundColor(metaGray)
+                }
+            }
+            .padding(.horizontal, 16).padding(.vertical, 14)
+            .background(Color.white)
+
+            // ── 评论区（新帖，暂无评论）──
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 6) {
+                    Text("共 0 条评论")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Color(r: 0.10, g: 0.10, b: 0.10))
+                    Spacer()
+                }
+                .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
+
+                // 评论输入框
+                HStack(spacing: 10) {
                     Circle()
                         .fill(LinearGradient(colors: persona.tone.gradientColors,
                                              startPoint: .topLeading, endPoint: .bottomTrailing))
                         .frame(width: 32, height: 32)
-                        .overlay(Text(persona.emoji).font(.system(size: 16)))
-                    Text(persona.name)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Color(r: 0.15, g: 0.15, b: 0.15))
-                    Spacer()
-                    Text("+关注")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(primaryColor)
-                        .padding(.horizontal, 10).padding(.vertical, 4)
-                        .overlay(Capsule().stroke(primaryColor, lineWidth: 1))
+                        .overlay(Text(persona.emoji).font(.system(size: 15)))
+                    HStack {
+                        Text("说点什么…")
+                            .font(.system(size: 13))
+                            .foregroundColor(Color(r: 0.68, g: 0.68, b: 0.70))
+                        Spacer()
+                        Image(systemName: "mic").font(.system(size: 14)).foregroundColor(metaGray)
+                        Image(systemName: "photo").font(.system(size: 14)).foregroundColor(metaGray)
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 9)
+                    .background(RoundedRectangle(cornerRadius: 20).fill(Color(r: 0.93, g: 0.93, b: 0.94)))
                 }
+                .padding(.horizontal, 16).padding(.bottom, 16)
 
-                Text(title)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(Color(r: 0.10, g: 0.10, b: 0.10))
+                // 空评论占位
+                VStack(spacing: 6) {
+                    Image(systemName: "bubble.right")
+                        .font(.system(size: 28))
+                        .foregroundColor(Color(r: 0.82, g: 0.82, b: 0.84))
+                    Text("还没有评论，快来抢沙发")
+                        .font(.system(size: 13))
+                        .foregroundColor(metaGray)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20)
+            }
+            .background(Color.white)
 
-                Text(text)
-                    .font(.system(size: 14))
-                    .foregroundColor(Color(r: 0.25, g: 0.25, b: 0.25))
-                    .lineSpacing(4)
-
-                // Tags
+            // ── 底部固定栏 ──
+            HStack(spacing: 12) {
                 HStack(spacing: 6) {
-                    ForEach(["#理财规划", "#黄金市场", "#家庭保障"], id: \.self) { tag in
-                        Text(tag)
-                            .font(.system(size: 12))
-                            .foregroundColor(primaryColor)
+                    Image(systemName: "pencil").font(.system(size: 13))
+                    Text("发评论").font(.system(size: 13))
+                }
+                .foregroundColor(Color(r: 0.50, g: 0.50, b: 0.52))
+                .padding(.horizontal, 14).padding(.vertical, 9)
+                .background(RoundedRectangle(cornerRadius: 20).fill(Color(r: 0.93, g: 0.93, b: 0.94)))
+
+                Spacer()
+
+                HStack(spacing: 18) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "heart").font(.system(size: 18))
+                        Text("0").font(.system(size: 13))
+                    }
+                    HStack(spacing: 4) {
+                        Image(systemName: "star").font(.system(size: 18))
+                        Text("0").font(.system(size: 13))
+                    }
+                    HStack(spacing: 4) {
+                        Image(systemName: "bubble.right").font(.system(size: 18))
+                        Text("0").font(.system(size: 13))
                     }
                 }
-
-                Divider()
-
-                // Engagement bar
-                HStack(spacing: 24) {
-                    Label("3.2k", systemImage: "heart.fill")
-                    Label("128", systemImage: "bubble.right.fill")
-                    Label("收藏", systemImage: "star.fill")
-                    Spacer()
-                    Image(systemName: "square.and.arrow.up")
-                }
-                .font(.system(size: 13))
-                .foregroundColor(.secondary)
+                .foregroundColor(Color(r: 0.22, g: 0.22, b: 0.24))
             }
-            .padding(16)
+            .padding(.horizontal, 14).padding(.vertical, 10)
             .background(Color.white)
+            .overlay(Divider(), alignment: .top)
         }
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
@@ -395,9 +838,10 @@ private struct XhsMockup: View {
 
 private struct OAMockup: View {
     let persona: AgentPersona
-    let text: String
+    let content: PostContent
     let title: String
-    let style: String
+
+    private let oaColor = Color(r: 0.471, g: 0.549, b: 0.714)
 
     var body: some View {
         VStack(spacing: 0) {
@@ -419,21 +863,16 @@ private struct OAMockup: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     // Header image
-                    LinearGradient(
-                        colors: [Color(r: 0.471, g: 0.549, b: 0.714), Color(r: 0.263, g: 0.337, b: 0.502)],
-                        startPoint: .topLeading, endPoint: .bottomTrailing
-                    )
-                    .frame(height: 180)
-                    .overlay(
-                        VStack(spacing: 6) {
-                            Image(systemName: "doc.richtext.fill")
-                                .font(.system(size: 36))
-                                .foregroundColor(.white.opacity(0.7))
-                            Text("推文封面")
-                                .font(.system(size: 12))
-                                .foregroundColor(.white.opacity(0.6))
-                        }
-                    )
+                    if !content.attachment.isEmpty {
+                        AttachmentCardView(description: content.attachment, accentColor: oaColor)
+                            .frame(height: 180)
+                            .frame(maxWidth: .infinity)
+                            .clipShape(Rectangle())
+                    } else {
+                        LinearGradient(colors: [oaColor, Color(r: 0.263, g: 0.337, b: 0.502)],
+                                       startPoint: .topLeading, endPoint: .bottomTrailing)
+                            .frame(height: 180)
+                    }
 
                     VStack(alignment: .leading, spacing: 14) {
                         Text(title)
@@ -459,24 +898,10 @@ private struct OAMockup: View {
 
                         Divider()
 
-                        Text(text)
+                        Text(content.body)
                             .font(.system(size: 15))
                             .foregroundColor(Color(r: 0.15, g: 0.15, b: 0.15))
                             .lineSpacing(6)
-
-                        // Image placeholder in article
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color(r: 0.92, g: 0.92, b: 0.95))
-                            .frame(height: 120)
-                            .overlay(
-                                HStack(spacing: 6) {
-                                    Image(systemName: "photo.fill")
-                                        .foregroundColor(.secondary)
-                                    Text("配图")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.secondary)
-                                }
-                            )
                     }
                     .padding(16)
                 }
@@ -492,8 +917,7 @@ private struct OAMockup: View {
 
 private struct PrivateMsgMockup: View {
     let persona: AgentPersona
-    let text: String
-    let style: String
+    let content: PostContent
 
     var body: some View {
         VStack(spacing: 0) {
@@ -527,7 +951,7 @@ private struct PrivateMsgMockup: View {
                 HStack(alignment: .top, spacing: 0) {
                     Spacer()
                     VStack(alignment: .trailing, spacing: 4) {
-                        Text(text)
+                        Text(content.body)
                             .font(.system(size: 14))
                             .foregroundColor(.white)
                             .padding(.horizontal, 12).padding(.vertical, 9)
@@ -740,7 +1164,6 @@ private struct MeetingMockup: View {
 
                 Divider()
 
-                // Today's goals
                 Text("今日目标")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.secondary)
@@ -754,7 +1177,6 @@ private struct MeetingMockup: View {
 
                 Divider()
 
-                // Materials ready
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(Color(r: 0.027, g: 0.757, b: 0.376))
@@ -801,22 +1223,22 @@ private func recommendedContent(platform: Platform, persona: AgentPersona) -> St
         return "风格：知识领袖\n「早安。复利的本质，不只是财富，也是健康与关系。今天的小积累，都在为未来铺路。」\n+ 一张简约知识卡"
 
     case (.xiaohongshu, .professional):
-        return "风格：专业顾问\n「保险规划的 3 个误区，很多人第一条就踩了｜干货分享」\n正文：误区一：保额越高越好；误区二…\n+ 3 张图文卡片"
+        return "风格：专业顾问\n「保险规划的 3 个误区，很多人第一条就踩了｜干货分享」\n误区一：保额越高越好（错！保额要匹配收入与负债，不是越高越对）\n误区二：买了医疗险就够了（错！医疗险报销住院费，重疾险替代收入损失，两者不重叠）\n误区三：年轻人不需要保险（错！越年轻保费越低，核保越容易，拖到中年健康问题一堆）\n#重疾险 #保险避坑 #家庭保障规划\n+ 3 张图文卡片"
     case (.xiaohongshu, .friendly):
-        return "风格：生活达人\n「闺蜜问我：买保险真的有用吗？我用亲身经历告诉她…」\n+ 暖色系 Vlog 封面图"
+        return "风格：生活达人\n「闺蜜问我：买保险真的有用吗？我用亲身经历告诉她」\n两年前，我妈查出乳腺结节，当时全家人都慌了。还好她五年前买了重疾险，整个治疗过程没让家里背债。那一刻我才真正理解：保险不是为了坏事发生，是让坏事发生时你还有选择权。\n#真实故事 #重疾险 #家庭保障\n+ 暖色系 Vlog 封面图"
     case (.xiaohongshu, .creative):
-        return "风格：创意博主\n「如果人生是一款游戏，你给自己加了什么「护甲」？｜创意测评」\n+ 游戏风格封面设计"
+        return "风格：创意博主\n「如果人生是一款游戏，你给自己加了什么「护甲」？｜创意测评」\n我给自己配了一套：医疗险（基础防御）+ 重疾险（大招抵挡）+ 年金险（续航能量条）。你的角色卡是什么配置？评论区说说看！\n#保险测评 #人生RPG #家庭保障\n+ 游戏风格封面设计"
     case (.xiaohongshu, .concise):
-        return "风格：知识领袖\n「一张图读懂：重疾险 vs 医疗险，到底差在哪？」\n+ 极简对比信息图"
+        return "风格：知识领袖\n「一张图读懂：重疾险 vs 医疗险，到底差在哪？」\n重疾险：确诊即赔，钱归你支配，补偿收入损失；医疗险：实报实销，只报医疗费用。两者解决不同问题，缺一不可。\n#重疾险科普 #医疗险 #保险知识\n+ 极简对比信息图"
 
     case (.wechatOA, .professional):
-        return "风格：专业顾问\n标题：《2025 年家庭财务规划白皮书：保障篇》\n导语：在不确定的时代，专业规划是最稳定的护城河…\n+ 深度长图文"
+        return "风格：专业顾问\n标题：《2025 年家庭财务规划白皮书：保障篇》\n在不确定的时代，专业规划是最稳定的护城河。今天我们从三个维度拆解家庭保障逻辑：第一，保额如何与家庭负债精准匹配；第二，重疾险与医疗险如何搭配才不浪费；第三，不同收入段的保障优先级排序。点击阅读全文，带走一份可执行的家庭保障清单。\n+ 深度长图文"
     case (.wechatOA, .friendly):
-        return "风格：生活达人\n标题：《那一年，一张保单改变了我们家的走向》\n导语：真实故事，温暖分享。不是在卖保险，是在讲人…\n+ 暖色故事封面"
+        return "风格：生活达人\n标题：《那一年，一张保单改变了我们家的走向》\n这不是一篇卖保险的文章。这是一个真实的故事：一个普通家庭，因为一场大病，两条截然不同的走向。有保单的那条路，孩子的学费、老人的赡养、房贷的月供，都还在正常运转。没有的那条，不敢细说。守护，是最朴素的爱。\n+ 暖色故事封面"
     case (.wechatOA, .creative):
-        return "风格：创意博主\n标题：《如果把保险设计成 RPG 游戏，你的角色卡是什么？》\n导语：用游戏思维理解保障…\n+ 创意互动封面"
+        return "风格：创意博主\n标题：《如果把保险设计成 RPG 游戏，你的角色卡是什么？》\n想象一下：医疗险是「护甲」，减伤但不免疫；重疾险是「复活石」，关键时刻让你不出局；年金险是「永动能量条」，退休后持续续航。你现在的角色，装备齐了吗？点进来测一测你的保障缺口。\n+ 创意互动封面"
     case (.wechatOA, .concise):
-        return "风格：知识领袖\n标题：《3 分钟读懂：为什么聪明人都在 30 岁前做规划？》\n导语：数据说话，逻辑先行…\n+ 简洁信息图"
+        return "风格：知识领袖\n标题：《3 分钟读懂：为什么聪明人都在 30 岁前做规划？》\n数据说话：30岁投保 vs 40岁投保，同等保额保费相差约40%；30岁前健康核保通过率超过95%，40岁后含除外条款的概率超过60%；重疾险最佳购买窗口：25–35岁。时间是保费最好的杠杆，早一天就省一分钱。\n+ 简洁信息图"
 
     case (.wechatPrivate, .professional):
         return "风格：专业顾问\n「张总，核保结果出来了：可以正常承保，肝癌项做除外责任。我用大白话解释一下这意味着什么，其余重疾保障不受影响。确认后我发您签约链接，让保障尽快生效。」"
