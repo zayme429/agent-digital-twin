@@ -9,6 +9,38 @@ class ScheduleManager: ObservableObject {
     private var announcedCardIDs:  Set<UUID>  = []
     private var timer:             Timer?
 
+    // MARK: - Posted state persistence
+
+    /// UserDefaults key for today's posted cards, resets automatically each new day.
+    private var postedKeysDefaultsKey: String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return "postedCards_\(f.string(from: Date()))"
+    }
+
+    private func savedPostedKeys() -> Set<String> {
+        Set(UserDefaults.standard.stringArray(forKey: postedKeysDefaultsKey) ?? [])
+    }
+
+    private func markPostedInDefaults(_ card: ScheduleCard) {
+        var keys = UserDefaults.standard.stringArray(forKey: postedKeysDefaultsKey) ?? []
+        let key = "\(card.platform.rawValue)|\(card.title)"
+        guard !keys.contains(key) else { return }
+        keys.append(key)
+        UserDefaults.standard.set(keys, forKey: postedKeysDefaultsKey)
+    }
+
+    private func applyPersistedPostedState(to cards: [ScheduleCard]) -> [ScheduleCard] {
+        let posted = savedPostedKeys()
+        return cards.map { card in
+            let key = "\(card.platform.rawValue)|\(card.title)"
+            guard posted.contains(key) else { return card }
+            return ScheduleCard(id: card.id, platform: card.platform, title: card.title,
+                                content: card.content, scheduledTime: card.scheduledTime,
+                                isPosted: true, mediaFiles: card.mediaFiles)
+        }
+    }
+
     init() {
         initializeDay()
         loadFromBackend()   // Try to refresh cards from backend config
@@ -35,15 +67,18 @@ class ScheduleManager: ObservableObject {
                                  .sorted { $0.scheduledTime < $1.scheduledTime }
             guard !loaded.isEmpty else { return }
             DispatchQueue.main.async {
-                // Preserve any already-posted state by matching titles + times
-                let postedIDs = Set(self.cards.filter(\.isPosted).map { "\($0.platform.rawValue)|\($0.title)" })
-                self.cards = loaded.map { card in
-                    let key = "\(card.platform.rawValue)|\(card.title)"
-                    return postedIDs.contains(key)
-                        ? ScheduleCard(id: card.id, platform: card.platform, title: card.title,
-                                       content: card.content, scheduledTime: card.scheduledTime,
-                                       isPosted: true, mediaFiles: card.mediaFiles)
-                        : card
+                let postedKeys = self.savedPostedKeys()
+                // Preserve existing card UUIDs so announcedCardIDs stays valid
+                self.cards = loaded.map { newCard in
+                    let key = "\(newCard.platform.rawValue)|\(newCard.title)"
+                    let existing = self.cards.first {
+                        $0.platform == newCard.platform && $0.title == newCard.title
+                    }
+                    let id       = existing?.id ?? newCard.id
+                    let isPosted = postedKeys.contains(key) || (existing?.isPosted ?? false)
+                    return ScheduleCard(id: id, platform: newCard.platform, title: newCard.title,
+                                        content: newCard.content, scheduledTime: newCard.scheduledTime,
+                                        isPosted: isPosted, mediaFiles: newCard.mediaFiles)
                 }
             }
         }.resume()
@@ -52,7 +87,8 @@ class ScheduleManager: ObservableObject {
     // MARK: - Day session
 
     private func initializeDay() {
-        cards             = ScheduleCard.todayCards()
+        // Restore today's posted state immediately so checkForDueCards doesn't re-announce them
+        cards             = applyPersistedPostedState(to: ScheduleCard.todayCards())
         announcedCardIDs  = []
         sessionDate       = Calendar.current.startOfDay(for: Date())
         timeline          = []
@@ -97,6 +133,7 @@ class ScheduleManager: ObservableObject {
 
     func execute(_ card: ScheduleCard) {
         guard let idx = cards.firstIndex(where: { $0.id == card.id }) else { return }
+        markPostedInDefaults(card)   // persist before UI update
         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
             cards[idx].isPosted = true
         }
