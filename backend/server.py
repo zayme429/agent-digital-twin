@@ -6,19 +6,24 @@ Open: http://localhost:8765
 """
 
 import cgi
+import glob as glob_mod
 import io
 import json
 import mimetypes
 import os
 import sys
 import uuid as uuid_mod
+from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
-PORT = 8765
-CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
-MEDIA_DIR   = os.path.join(os.path.dirname(os.path.abspath(__file__)), "media")
-os.makedirs(MEDIA_DIR, exist_ok=True)
+PORT        = 8765
+BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
+MEDIA_DIR   = os.path.join(BASE_DIR, "media")
+BACKUP_DIR  = os.path.join(BASE_DIR, "backups")
+os.makedirs(MEDIA_DIR,  exist_ok=True)
+os.makedirs(BACKUP_DIR, exist_ok=True)
 
 # ── Default config ──────────────────────────────────────────────────────────
 
@@ -31,12 +36,21 @@ DEFAULT_CONFIG = {
         "temperature": 0.7,
         "max_tokens": 2048
     },
-    "persona": {
-        "name": "林晓薇",
-        "tone": "professional",
-        "bio": "10年寿险顾问 | 专注家庭财富保障规划",
-        "brand_keywords": "保险规划,家庭保障,专业顾问"
-    },
+    "personas": [
+        {"id": "11111111-0000-0000-0000-000000000001", "name": "职场精英", "emoji": "👔",
+         "description": "专业、严谨、高效的职场形象，适合商务场景的内容发布与互动",
+         "tone": "专业严谨", "tags": ["商务", "专业", "严谨"]},
+        {"id": "11111111-0000-0000-0000-000000000002", "name": "生活达人", "emoji": "✨",
+         "description": "亲切温暖、充满正能量，适合生活方式内容分享和情感连接",
+         "tone": "亲切温暖", "tags": ["生活", "温暖", "治愈"]},
+        {"id": "11111111-0000-0000-0000-000000000003", "name": "创意博主", "emoji": "🎨",
+         "description": "充满创意和个性，适合创作类内容输出和年轻受众互动",
+         "tone": "创意活泼", "tags": ["创意", "个性", "潮流"]},
+        {"id": "11111111-0000-0000-0000-000000000004", "name": "知识领袖", "emoji": "🔬",
+         "description": "简洁有力、深度思考，适合知识分享、行业洞察与观点输出",
+         "tone": "简洁高效", "tags": ["知识", "深度", "洞察"]},
+    ],
+    "selectedPersonaId": "11111111-0000-0000-0000-000000000001",
     "content": {
         "auto_generate": True,
         "review_before_post": True,
@@ -124,10 +138,44 @@ DEFAULT_CONFIG = {
 def load_config():
     if os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
+            cfg = json.load(f)
+        # Migrate old single-persona format to personas array
+        _tone_map = {"professional": "专业严谨", "friendly": "亲切温暖",
+                     "creative": "创意活泼", "concise": "简洁高效"}
+        if "personas" not in cfg:
+            old = cfg.get("persona", {})
+            raw_tone = old.get("tone", "professional")
+            cfg["personas"] = [{
+                "id": "11111111-0000-0000-0000-000000000001",
+                "name": old.get("name", "默认人设"),
+                "emoji": "👤",
+                "description": old.get("bio", ""),
+                "tone": _tone_map.get(raw_tone, raw_tone),
+                "tags": [k.strip() for k in old.get("brand_keywords", "").split(",") if k.strip()],
+            }]
+            cfg["selectedPersonaId"] = "11111111-0000-0000-0000-000000000001"
+        # Migrate English tone keys to Chinese labels
+        for p in cfg.get("personas", []):
+            p["tone"] = _tone_map.get(p.get("tone", ""), p.get("tone", ""))
+        return cfg
     return DEFAULT_CONFIG
 
+def backup_config():
+    """Copy current config.json to backups/ with a timestamp. Keep last 10."""
+    if not os.path.exists(CONFIG_PATH):
+        return
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    dest = os.path.join(BACKUP_DIR, f"config_{ts}.json")
+    with open(CONFIG_PATH, "r", encoding="utf-8") as src, \
+         open(dest, "w", encoding="utf-8") as dst:
+        dst.write(src.read())
+    # Prune: keep only the 10 most recent backups
+    backups = sorted(glob_mod.glob(os.path.join(BACKUP_DIR, "config_*.json")))
+    for old in backups[:-10]:
+        os.remove(old)
+
 def save_config(cfg):
+    backup_config()
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(cfg, f, ensure_ascii=False, indent=2)
 
@@ -540,6 +588,49 @@ HTML = r"""<!DOCTYPE html>
   }
   .del-btn:hover { background: rgba(255,59,48,.08); }
 
+  /* ── Persona cards ── */
+  .persona-card {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    transition: background .15s;
+  }
+  .persona-card:last-child { border-bottom: none; }
+  .persona-card:hover { background: rgba(0,0,0,.015); }
+  .persona-card.persona-selected { background: rgba(0,122,255,.04); }
+  .persona-emoji { font-size: 30px; line-height: 1; width: 42px; text-align: center; flex-shrink: 0; padding-top: 2px; }
+  .persona-info { flex: 1; min-width: 0; }
+  .persona-name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+  .persona-name { font-size: 15px; font-weight: 600; color: var(--label); }
+  .persona-tone-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; color: #fff; }
+  .persona-sel-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: var(--accent); color: #fff; }
+  .persona-desc { font-size: 13px; color: var(--sub); margin-bottom: 6px; line-height: 1.45; }
+  .persona-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .persona-tag { font-size: 11px; padding: 2px 7px; border-radius: 8px; background: var(--bg); color: var(--sub); border: 1px solid var(--border); }
+  .persona-actions { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+  .persona-action-btn { font-size: 12px; font-weight: 500; padding: 5px 12px; border-radius: 8px; border: none; cursor: pointer; transition: background .15s, opacity .15s; white-space: nowrap; }
+  .persona-select-btn { background: var(--accent); color: #fff; }
+  .persona-select-btn:hover { opacity: .85; }
+  .persona-select-btn.active { background: var(--green); cursor: default; }
+  .persona-edit-btn { background: var(--input-bg); color: var(--label); border: 1px solid var(--border); }
+  .persona-edit-btn:hover { background: var(--border); }
+  .persona-del-btn { background: none; color: var(--danger); border: 1px solid rgba(255,59,48,.3); }
+  .persona-del-btn:hover { background: rgba(255,59,48,.07); }
+  /* Persona inline form */
+  .persona-form { padding: 16px; border-bottom: 1px solid var(--border); background: rgba(0,122,255,.02); display: flex; flex-direction: column; gap: 10px; }
+  .persona-form:last-child { border-bottom: none; }
+  .persona-form-row { display: flex; gap: 8px; align-items: center; }
+  .persona-form-label { font-size: 12px; font-weight: 600; color: var(--sub); text-transform: uppercase; letter-spacing: .4px; width: 52px; flex-shrink: 0; }
+  .persona-form input[type="text"], .persona-form textarea, .persona-form select { flex: 1; font-size: 13px; padding: 7px 10px; }
+  .emoji-input { width: 60px !important; flex: 0 0 60px !important; text-align: center; font-size: 20px; }
+  .persona-form-btns { display: flex; gap: 8px; justify-content: flex-end; }
+  .persona-form-save { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 7px 18px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .persona-form-save:hover { opacity: .85; }
+  .persona-form-cancel { background: none; color: var(--sub); border: 1px solid var(--border); border-radius: 8px; padding: 7px 18px; font-size: 13px; cursor: pointer; }
+  .persona-form-cancel:hover { background: var(--bg); }
+
   /* ── Platform badge colors ── */
   .p-moments  { background:#E6F9EF; color:#07C260; }
   .p-xhs      { background:#FFE8EC; color:#FF2442; }
@@ -589,6 +680,9 @@ HTML = r"""<!DOCTYPE html>
     </div>
     <div class="tab" onclick="switchTab('schedule', this)">
       <span class="tab-icon">📅</span>发布计划
+    </div>
+    <div class="tab" onclick="switchTab('backups', this); loadBackups()">
+      <span class="tab-icon">🗂</span>备份恢复
     </div>
   </nav>
 
@@ -653,33 +747,12 @@ HTML = r"""<!DOCTYPE html>
 
     <!-- ── 人设设置 ── -->
     <div id="pane-persona" class="pane">
-      <p class="section-title">基础信息</p>
+      <p class="section-title">人设列表</p>
       <div class="card">
-        <div class="field">
-          <div class="field-label">人设名称</div>
-          <input type="text" id="persona_name" placeholder="林晓薇">
-        </div>
-        <div class="field">
-          <div class="field-label">风格基调</div>
-          <select id="persona_tone">
-            <option value="professional">专业顾问</option>
-            <option value="friendly">生活达人</option>
-            <option value="creative">创意博主</option>
-            <option value="concise">知识领袖</option>
-          </select>
-        </div>
-        <div class="field" style="align-items:flex-start">
-          <div class="field-label" style="padding-top:4px">人设简介</div>
-          <textarea id="persona_bio" rows="3" placeholder="10年寿险顾问 | 专注家庭财富保障规划"></textarea>
-        </div>
-        <div class="field">
-          <div class="field-label-wrap">
-            <div class="field-label">品牌关键词</div>
-            <div class="field-sub">逗号分隔</div>
-          </div>
-          <input type="text" id="persona_brand_keywords" placeholder="保险规划,家庭保障,专业顾问">
-        </div>
+        <div id="persona-list"></div>
+        <button class="add-row-btn" onclick="addPersona()">＋ 添加人设</button>
       </div>
+      <div class="hint">点击「设为当前」切换 App 中使用的人设，保存后 App 重新读取配置时生效。</div>
     </div>
 
     <!-- ── 内容配置 ── -->
@@ -729,6 +802,15 @@ HTML = r"""<!DOCTYPE html>
       </div>
     </div>
 
+    <!-- ── 备份恢复 ── -->
+    <div id="pane-backups" class="pane">
+      <p class="section-title">历史备份</p>
+      <div class="card" id="backup-list">
+        <div style="padding:16px;color:var(--sub);font-size:14px;">加载中…</div>
+      </div>
+      <div class="hint">每次点击「保存配置」时自动备份，保留最近 10 份。点击「恢复」将覆盖当前配置。</div>
+    </div>
+
     <!-- ── 发布计划 ── -->
     <div id="pane-schedule" class="pane">
       <p class="section-title">今日任务列表</p>
@@ -775,11 +857,10 @@ async function loadConfig() {
   document.getElementById('temp_val').textContent  = temp;
   document.getElementById('llm_max_tokens').value  = cfg.llm.max_tokens || 2048;
 
-  // Persona
-  document.getElementById('persona_name').value           = cfg.persona.name           || '';
-  document.getElementById('persona_tone').value           = cfg.persona.tone           || 'professional';
-  document.getElementById('persona_bio').value            = cfg.persona.bio            || '';
-  document.getElementById('persona_brand_keywords').value = cfg.persona.brand_keywords || '';
+  // Personas
+  personasData = cfg.personas || [];
+  selectedPersonaId = cfg.selectedPersonaId || (personasData[0] && personasData[0].id) || '';
+  renderPersonas();
 
   // Content
   document.getElementById('content_auto_generate').checked    = cfg.content.auto_generate    ?? true;
@@ -1049,12 +1130,8 @@ async function saveAll() {
       temperature: parseFloat(document.getElementById('llm_temperature').value),
       max_tokens:  parseInt(document.getElementById('llm_max_tokens').value),
     },
-    persona: {
-      name:           document.getElementById('persona_name').value,
-      tone:           document.getElementById('persona_tone').value,
-      bio:            document.getElementById('persona_bio').value,
-      brand_keywords: document.getElementById('persona_brand_keywords').value,
-    },
+    personas: personasData,
+    selectedPersonaId: selectedPersonaId,
     content: {
       auto_generate:     document.getElementById('content_auto_generate').checked,
       review_before_post:document.getElementById('content_review_before_post').checked,
@@ -1076,6 +1153,262 @@ async function saveAll() {
     toast.classList.add('show');
     setTimeout(() => toast.classList.remove('show'), 2200);
   }
+}
+
+// ── Backup management ─────────────────────────────────────────────────────
+async function loadBackups() {
+  const res = await fetch('/api/backups');
+  const files = await res.json();
+  const list = document.getElementById('backup-list');
+  if (!files.length) {
+    list.innerHTML = '<div style="padding:16px;color:var(--sub);font-size:14px;">暂无备份</div>';
+    return;
+  }
+  list.innerHTML = '';
+  files.forEach(filename => {
+    // filename format: config_YYYYMMDD_HHMMSS.json
+    const m = filename.match(/config_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})\.json/);
+    const label = m ? `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}:${m[6]}` : filename;
+    const row = document.createElement('div');
+    row.className = 'field';
+    row.style.justifyContent = 'space-between';
+    const span = document.createElement('span');
+    span.style.cssText = 'font-size:14px;font-weight:500;';
+    span.textContent = label;
+    const btn = document.createElement('button');
+    btn.className = 'save-btn';
+    btn.style.cssText = 'padding:6px 16px;font-size:13px;';
+    btn.textContent = '恢复';
+    btn.onclick = async () => {
+      if (!confirm(`恢复备份 ${label}？当前配置将被覆盖。`)) return;
+      const r = await fetch('/api/backups/restore', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({filename}),
+      });
+      if ((await r.json()).ok) {
+        const toast = document.getElementById('toast');
+        toast.textContent = '\u2713 \u5DF2\u6062\u590D\u5907\u4EFD';
+        toast.classList.add('show');
+        setTimeout(() => { toast.classList.remove('show'); toast.textContent='\u2713 \u914D\u7F6E\u5DF2\u4FDD\u5B58'; }, 2200);
+        loadConfig();
+      }
+    };
+    row.appendChild(span);
+    row.appendChild(btn);
+    list.appendChild(row);
+  });
+}
+
+// ── Persona management ─────────────────────────────────────────────────────
+let personasData = [];
+let selectedPersonaId = '';
+let editingPersonaId = null;
+
+const TONE_LABELS = { professional:'专业严谨', friendly:'亲切温暖', creative:'创意活泼', concise:'简洁高效' };
+const TONE_COLORS = { professional:'#7B8CB6', friendly:'#FF8C33', creative:'#CC33CC', concise:'#34C759' };
+
+function genId() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random()*16|0, v = c==='x' ? r : (r&0x3|0x8);
+    return v.toString(16);
+  });
+}
+
+function renderPersonas() {
+  const container = document.getElementById('persona-list');
+  if (!container) return;
+  container.innerHTML = '';
+  personasData.forEach(p => {
+    if (editingPersonaId === p.id) container.appendChild(makePersonaForm(p));
+    else container.appendChild(makePersonaCard(p));
+  });
+  if (editingPersonaId === 'new') container.appendChild(makePersonaForm(null));
+}
+
+function makePersonaCard(p) {
+  const isSelected = p.id === selectedPersonaId;
+  const div = document.createElement('div');
+  div.className = 'persona-card' + (isSelected ? ' persona-selected' : '');
+
+  const emojiDiv = document.createElement('div');
+  emojiDiv.className = 'persona-emoji';
+  emojiDiv.textContent = p.emoji || '\uD83D\uDC64';
+
+  const info = document.createElement('div');
+  info.className = 'persona-info';
+
+  const nameRow = document.createElement('div');
+  nameRow.className = 'persona-name-row';
+  const nameSpan = document.createElement('span');
+  nameSpan.className = 'persona-name';
+  nameSpan.textContent = p.name;
+  const toneBadge = document.createElement('span');
+  toneBadge.className = 'persona-tone-badge';
+  toneBadge.style.background = TONE_COLORS[p.tone] || '#888';
+  toneBadge.textContent = p.tone || '';
+  nameRow.appendChild(nameSpan);
+  nameRow.appendChild(toneBadge);
+  if (isSelected) {
+    const selBadge = document.createElement('span');
+    selBadge.className = 'persona-sel-badge';
+    selBadge.textContent = '当前使用';
+    nameRow.appendChild(selBadge);
+  }
+
+  const desc = document.createElement('div');
+  desc.className = 'persona-desc';
+  desc.textContent = p.description || '';
+
+  const tagsDiv = document.createElement('div');
+  tagsDiv.className = 'persona-tags';
+  (p.tags || []).forEach(tag => {
+    const t = document.createElement('span');
+    t.className = 'persona-tag';
+    t.textContent = tag;
+    tagsDiv.appendChild(t);
+  });
+
+  info.appendChild(nameRow);
+  info.appendChild(desc);
+  info.appendChild(tagsDiv);
+
+  const actions = document.createElement('div');
+  actions.className = 'persona-actions';
+
+  const selBtn = document.createElement('button');
+  selBtn.className = 'persona-action-btn persona-select-btn' + (isSelected ? ' active' : '');
+  selBtn.textContent = isSelected ? '\u2713 \u5DF2\u9009\u4E2D' : '\u8BBE\u4E3A\u5F53\u524D';
+  if (!isSelected) selBtn.onclick = () => { selectedPersonaId = p.id; renderPersonas(); };
+
+  const editBtn = document.createElement('button');
+  editBtn.className = 'persona-action-btn persona-edit-btn';
+  editBtn.textContent = '\u7F16\u8F91';
+  editBtn.onclick = () => { editingPersonaId = p.id; renderPersonas(); };
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'persona-action-btn persona-del-btn';
+  delBtn.textContent = '\u5220\u9664';
+  delBtn.onclick = () => {
+    if (personasData.length <= 1) { alert('\u81F3\u5C11\u4FDD\u7559\u4E00\u4E2A\u4EBA\u8BBE'); return; }
+    personasData = personasData.filter(x => x.id !== p.id);
+    if (selectedPersonaId === p.id) selectedPersonaId = personasData[0]?.id || '';
+    renderPersonas();
+  };
+
+  actions.appendChild(selBtn);
+  actions.appendChild(editBtn);
+  actions.appendChild(delBtn);
+
+  div.appendChild(emojiDiv);
+  div.appendChild(info);
+  div.appendChild(actions);
+  return div;
+}
+
+function makePersonaForm(p) {
+  const isNew = !p;
+  const div = document.createElement('div');
+  div.className = 'persona-form';
+
+  function formRow(labelText, inputEl) {
+    const row = document.createElement('div');
+    row.className = 'persona-form-row';
+    const label = document.createElement('div');
+    label.className = 'persona-form-label';
+    label.textContent = labelText;
+    row.appendChild(label);
+    row.appendChild(inputEl);
+    return row;
+  }
+
+  const emojiInput = document.createElement('input');
+  emojiInput.type = 'text';
+  emojiInput.value = p?.emoji || '\uD83D\uDC64';
+  emojiInput.className = 'emoji-input';
+  emojiInput.placeholder = '\u8868\u60C5';
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.value = p?.name || '';
+  nameInput.placeholder = '\u4EBA\u8BBE\u540D\u79F0';
+  const emojiNameRow = document.createElement('div');
+  emojiNameRow.className = 'persona-form-row';
+  const emojiLabel = document.createElement('div');
+  emojiLabel.className = 'persona-form-label';
+  emojiLabel.textContent = '\u540D\u79F0';
+  emojiNameRow.appendChild(emojiLabel);
+  emojiNameRow.appendChild(emojiInput);
+  emojiNameRow.appendChild(nameInput);
+  div.appendChild(emojiNameRow);
+
+  const toneInput = document.createElement('input');
+  toneInput.type = 'text';
+  toneInput.value = p?.tone || '';
+  toneInput.placeholder = '\u4F8B\uFF1A\u4E13\u4E1A\u4E25\u8C28\u3001\u4EB2\u5207\u6E29\u6696\u3001\u521B\u610F\u6D3B\u6CFC\u2026';
+  toneInput.setAttribute('list', 'tone-suggestions');
+  const datalist = document.createElement('datalist');
+  datalist.id = 'tone-suggestions';
+  Object.values(TONE_LABELS).forEach(lbl => {
+    const opt = document.createElement('option');
+    opt.value = lbl;
+    datalist.appendChild(opt);
+  });
+  div.appendChild(datalist);
+  div.appendChild(formRow('\u98CE\u683C', toneInput));
+
+  const descInput = document.createElement('textarea');
+  descInput.value = p?.description || '';
+  descInput.placeholder = '\u4EBA\u8BBE\u7B80\u4ECB';
+  descInput.rows = 2;
+  div.appendChild(formRow('\u7B80\u4ECB', descInput));
+
+  const tagsInput = document.createElement('input');
+  tagsInput.type = 'text';
+  tagsInput.value = (p?.tags || []).join(',');
+  tagsInput.placeholder = '\u6807\u7B7E\uFF08\u9017\u53F7\u5206\u9694\uFF09';
+  div.appendChild(formRow('\u6807\u7B7E', tagsInput));
+
+  const btns = document.createElement('div');
+  btns.className = 'persona-form-btns';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'persona-form-save';
+  saveBtn.textContent = '\u4FDD\u5B58';
+  saveBtn.onclick = () => {
+    const newP = {
+      id: p?.id || genId(),
+      name: nameInput.value.trim() || '\u672A\u547D\u540D',
+      emoji: emojiInput.value.trim() || '\uD83D\uDC64',
+      description: descInput.value.trim(),
+      tone: toneInput.value.trim(),
+      tags: tagsInput.value.split(',').map(t => t.trim()).filter(Boolean),
+    };
+    if (isNew) {
+      personasData.push(newP);
+      if (!selectedPersonaId) selectedPersonaId = newP.id;
+    } else {
+      const idx = personasData.findIndex(x => x.id === p.id);
+      if (idx >= 0) personasData[idx] = newP;
+      if (selectedPersonaId === p.id) selectedPersonaId = newP.id;
+    }
+    editingPersonaId = null;
+    renderPersonas();
+  };
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'persona-form-cancel';
+  cancelBtn.textContent = '\u53D6\u6D88';
+  cancelBtn.onclick = () => { editingPersonaId = null; renderPersonas(); };
+
+  btns.appendChild(cancelBtn);
+  btns.appendChild(saveBtn);
+  div.appendChild(btns);
+  return div;
+}
+
+function addPersona() {
+  editingPersonaId = 'new';
+  renderPersonas();
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────
@@ -1122,6 +1455,23 @@ class Handler(BaseHTTPRequestHandler):
             self.send_html(HTML)
         elif path == "/api/config":
             self.send_json(load_config())
+        elif path == "/api/backups":
+            files = sorted(glob_mod.glob(os.path.join(BACKUP_DIR, "config_*.json")), reverse=True)
+            self.send_json([os.path.basename(f) for f in files])
+        elif path.startswith("/api/backups/"):
+            filename = os.path.basename(path[13:])
+            filepath = os.path.join(BACKUP_DIR, filename)
+            if filename.startswith("config_") and filename.endswith(".json") and os.path.isfile(filepath):
+                with open(filepath, "r", encoding="utf-8") as f:
+                    self.send_json(json.load(f))
+            else:
+                self.send_response(404); self.end_headers()
+        elif path == "/api/personas":
+            cfg = load_config()
+            self.send_json({
+                "personas": cfg.get("personas", []),
+                "selectedPersonaId": cfg.get("selectedPersonaId", ""),
+            })
         elif path.startswith("/media/"):
             filename = os.path.basename(path[7:])
             filepath = os.path.join(MEDIA_DIR, filename)
@@ -1149,6 +1499,34 @@ class Handler(BaseHTTPRequestHandler):
             body = self.rfile.read(length)
             try:
                 cfg = json.loads(body)
+                save_config(cfg)
+                self.send_json({"ok": True})
+            except Exception as e:
+                self.send_json({"ok": False, "error": str(e)}, status=400)
+        elif path == "/api/backups/restore":
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length)
+            try:
+                data = json.loads(body)
+                filename = os.path.basename(data.get("filename", ""))
+                filepath = os.path.join(BACKUP_DIR, filename)
+                if not (filename.startswith("config_") and filename.endswith(".json") and os.path.isfile(filepath)):
+                    self.send_json({"ok": False, "error": "invalid backup"}, status=400)
+                    return
+                with open(filepath, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+                save_config(cfg)
+                self.send_json({"ok": True})
+            except Exception as e:
+                self.send_json({"ok": False, "error": str(e)}, status=400)
+        elif path == "/api/personas":
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length)
+            try:
+                data = json.loads(body)
+                cfg = load_config()
+                cfg["personas"] = data.get("personas", [])
+                cfg["selectedPersonaId"] = data.get("selectedPersonaId", "")
                 save_config(cfg)
                 self.send_json({"ok": True})
             except Exception as e:

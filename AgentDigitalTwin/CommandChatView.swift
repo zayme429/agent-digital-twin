@@ -271,7 +271,7 @@ struct CommandChatView: View {
         }
         if s.contains("公众号") || s.contains("推文") {
             return AgentResponse(
-                text: "✅ 公众号推文任务已加入待执行队列！\n\n请在主界面确认执行，内容将按 \(persona.tone.rawValue) 基调自动创作。",
+                text: "✅ 公众号推文任务已加入待执行队列！\n\n请在主界面确认执行，内容将按 \(persona.displayTone) 基调自动创作。",
                 platform: .wechatOA)
         }
         if s.contains("互动") || s.contains("私聊") || s.contains("卡片") {
@@ -285,20 +285,20 @@ struct CommandChatView: View {
                        + "• 计划任务：\(total) 条\n• 已完成：\(done) 条\n"
                        + "• 手动触发：\(manual) 次\n"
                        + "• 当前人设：\(persona.emoji) \(persona.name)\n"
-                       + "• 风格基调：\(persona.tone.rawValue)\n"
+                       + "• 风格基调：\(persona.displayTone)\n"
                        + "─────────────────\n系统运行正常，数字孪生同步完成 ✅"
             return AgentResponse(text: report)
         }
         if s.contains("人设") || s.contains("切换") || s.contains("风格") {
             let tagStr  = persona.tags.map { "#\($0)" }.joined(separator: " ")
             let detail  = "当前激活人设：\n\n\(persona.emoji) \(persona.name)\n"
-                        + "\(persona.tone.rawValue) · \(persona.description)\n\n"
+                        + "\(persona.displayTone) · \(persona.description)\n\n"
                         + "标签：\(tagStr)\n\n如需切换，请在顶部人设选择栏选择或长按编辑。"
             return AgentResponse(text: detail)
         }
         let fallbacks = [
             "指令已接收 ✅\n\n正在以「\(persona.name)」人设处理你的请求，稍候。",
-            "明白！数字孪生代理人已记录该指令，将按照 \(persona.tone.rawValue) 风格执行。\n\n如需立即触发某平台，可使用上方快捷按钮。",
+            "明白！数字孪生代理人已记录该指令，将按照 \(persona.displayTone) 风格执行。\n\n如需立即触发某平台，可使用上方快捷按钮。",
             "好的，正在处理中 ⚡\n\n如果你想发布到特定平台，告诉我平台名称即可（如：发朋友圈、推小红书）。",
         ]
         return AgentResponse(text: fallbacks.randomElement()!)

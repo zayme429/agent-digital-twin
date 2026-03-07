@@ -208,7 +208,7 @@ private struct PersonaDrawerRow: View {
                     Text(persona.name)
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(isSelected ? accent : Color(red: 0.20, green: 0.18, blue: 0.28))
-                    Text(persona.tone.rawValue)
+                    Text(persona.displayTone)
                         .font(.system(size: 11))
                         .foregroundColor(Color(red: 0.55, green: 0.53, blue: 0.62))
                 }

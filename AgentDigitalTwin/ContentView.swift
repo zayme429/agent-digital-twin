@@ -301,13 +301,13 @@ struct ContentView: View {
         }
         if s.contains("报告") || s.contains("总结") {
             let manual = scheduleManager.cards.filter { $0.isManualTrigger }.count
-            return AgentResp(text: "📊 今日运营报告\n─────\n计划：\(total) · 完成：\(done) · 手动：\(manual)\n人设：\(persona.emoji) \(persona.name) · \(persona.tone.rawValue)\n─────\n系统正常 ✅")
+            return AgentResp(text: "📊 今日运营报告\n─────\n计划：\(total) · 完成：\(done) · 手动：\(manual)\n人设：\(persona.emoji) \(persona.name) · \(persona.displayTone)\n─────\n系统正常 ✅")
         }
         if s.contains("人设") || s.contains("切换") {
-            return AgentResp(text: "当前人设：\(persona.emoji) \(persona.name)\n\(persona.tone.rawValue) · \(persona.description)\n\n切换请点击左上角齿轮菜单。")
+            return AgentResp(text: "当前人设：\(persona.emoji) \(persona.name)\n\(persona.displayTone) · \(persona.description)\n\n切换请点击左上角齿轮菜单。")
         }
         return AgentResp(text: ["指令已接收 ✅  正在以「\(persona.name)」人设处理。",
-                                "明白！将按 \(persona.tone.rawValue) 风格执行。如需发布，告诉我平台名称即可。",
+                                "明白！将按 \(persona.displayTone) 风格执行。如需发布，告诉我平台名称即可。",
                                 "好的，处理中 ⚡  如需发布内容，告诉我平台名称即可。"].randomElement()!)
     }
 }

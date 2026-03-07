@@ -65,7 +65,7 @@ struct PersonaSettingsView: View {
         .sheet(isPresented: $showNewPersona) {
             PersonaEditSheet(
                 persona: AgentPersona(id: UUID(), name: "", emoji: "🤖",
-                                      description: "", tone: .professional, tags: []),
+                                      description: "", tone: .professional, toneLabel: "专业严谨", tags: []),
                 isNew: true
             ) { personaManager.add($0) }
         }
@@ -100,7 +100,7 @@ struct PersonaListRow: View {
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.white)
 
-                        Text(persona.tone.rawValue)
+                        Text(persona.displayTone)
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundColor(persona.tone.color)
                             .padding(.horizontal, 8)
@@ -207,7 +207,10 @@ struct PersonaEditSheet: View {
                     Section("风格基调") {
                         ForEach(PersonaTone.allCases) { tone in
                             Button {
-                                withAnimation(.spring(response: 0.25)) { persona.tone = tone }
+                                withAnimation(.spring(response: 0.25)) {
+                                    persona.tone = tone
+                                    persona.toneLabel = tone.rawValue
+                                }
                             } label: {
                                 HStack(spacing: 10) {
                                     Circle()
