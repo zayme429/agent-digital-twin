@@ -681,6 +681,9 @@ HTML = r"""<!DOCTYPE html>
     <div class="tab" onclick="switchTab('schedule', this)">
       <span class="tab-icon">📅</span>发布计划
     </div>
+    <div class="tab" onclick="switchTab('openclaw', this)">
+      <span class="tab-icon">🔌</span>OpenClaw
+    </div>
     <div class="tab" onclick="switchTab('backups', this); loadBackups()">
       <span class="tab-icon">🗂</span>备份恢复
     </div>
@@ -811,6 +814,49 @@ HTML = r"""<!DOCTYPE html>
       <div class="hint">每次点击「保存配置」时自动备份，保留最近 10 份。点击「恢复」将覆盖当前配置。</div>
     </div>
 
+    <!-- ── OpenClaw 配置 ── -->
+    <div id="pane-openclaw" class="pane">
+      <p class="section-title">连接配置</p>
+      <div class="card">
+        <div class="field">
+          <div class="field-label-wrap">
+            <div class="field-label">启用 OpenClaw</div>
+            <div class="field-sub">连接到 OpenClaw 服务</div>
+          </div>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" id="openclaw_enabled">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-label-wrap">
+            <div class="field-label">服务地址</div>
+          </div>
+          <input type="text" id="openclaw_url" placeholder="http://154.9.252.35:3000/api/chat">
+        </div>
+      </div>
+
+      <p class="section-title">API 密钥管理</p>
+      <div class="card">
+        <div id="apikey-list"></div>
+        <button class="add-row-btn" onclick="addApiKey()">＋ 添加 API Key</button>
+      </div>
+      <div class="hint">API Key 用于验证客户端请求。iOS App 需要配置相同的 Key 才能连接。</div>
+
+      <p class="section-title">连接测试</p>
+      <div class="card">
+        <div class="field" style="flex-direction:column;align-items:stretch;gap:10px;">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" id="test_message" placeholder="输入测试消息..." value="你好，请介绍一下你自己" style="flex:1;">
+            <button class="save-btn" onclick="testOpenClaw()" style="padding:8px 20px;">发送测试</button>
+          </div>
+          <div id="test_result" style="display:none;padding:12px;background:var(--input-bg);border-radius:8px;font-size:13px;line-height:1.6;white-space:pre-wrap;"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- ── 发布计划 ── -->
     <div id="pane-schedule" class="pane">
       <p class="section-title">今日任务列表</p>
@@ -868,6 +914,13 @@ async function loadConfig() {
   document.getElementById('content_moments_daily').value = cfg.content.moments_daily ?? 1;
   document.getElementById('content_xhs_daily').value     = cfg.content.xhs_daily     ?? 1;
   document.getElementById('content_oa_weekly').value     = cfg.content.oa_weekly     ?? 1;
+
+  // OpenClaw
+  const openclaw = cfg.openclaw || {};
+  document.getElementById('openclaw_enabled').checked = openclaw.enabled ?? false;
+  document.getElementById('openclaw_url').value = openclaw.url || '';
+  apiKeysData = openclaw.api_keys || [];
+  renderApiKeys();
 
   // Schedule
   renderSchedule(cfg.schedule || []);
@@ -1138,6 +1191,11 @@ async function saveAll() {
       moments_daily:     parseInt(document.getElementById('content_moments_daily').value),
       xhs_daily:         parseInt(document.getElementById('content_xhs_daily').value),
       oa_weekly:         parseInt(document.getElementById('content_oa_weekly').value),
+    },
+    openclaw: {
+      enabled: document.getElementById('openclaw_enabled').checked,
+      url: document.getElementById('openclaw_url').value,
+      api_keys: apiKeysData,
     },
     schedule: collectSchedule(),
   };
@@ -1411,6 +1469,92 @@ function addPersona() {
   renderPersonas();
 }
 
+// ── API Key management ────────────────────────────────────────────────────
+let apiKeysData = [];
+
+function renderApiKeys() {
+  const container = document.getElementById('apikey-list');
+  if (!container) return;
+  container.innerHTML = '';
+  apiKeysData.forEach((k, idx) => {
+    const div = document.createElement('div');
+    div.className = 'field';
+    div.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 120px auto;gap:8px;align-items:center;';
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.value = k.name || '';
+    nameInput.placeholder = '客户端名称';
+    nameInput.style.cssText = 'font-size:13px;padding:6px 10px;';
+    nameInput.oninput = () => { apiKeysData[idx].name = nameInput.value; };
+
+    const keyInput = document.createElement('input');
+    keyInput.type = 'text';
+    keyInput.value = k.key || '';
+    keyInput.placeholder = 'API Key';
+    keyInput.style.cssText = 'font-size:13px;padding:6px 10px;font-family:monospace;';
+    keyInput.oninput = () => { apiKeysData[idx].key = keyInput.value; };
+
+    const dateSpan = document.createElement('span');
+    dateSpan.style.cssText = 'font-size:12px;color:var(--sub);';
+    dateSpan.textContent = k.created || '';
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'del-btn';
+    delBtn.innerHTML = '×';
+    delBtn.onclick = () => { apiKeysData.splice(idx, 1); renderApiKeys(); };
+
+    div.appendChild(nameInput);
+    div.appendChild(keyInput);
+    div.appendChild(dateSpan);
+    div.appendChild(delBtn);
+    container.appendChild(div);
+  });
+}
+
+function addApiKey() {
+  const today = new Date().toISOString().split('T')[0];
+  apiKeysData.push({ key: '', name: '', created: today });
+  renderApiKeys();
+}
+
+// ── OpenClaw test ─────────────────────────────────────────────────────────
+async function testOpenClaw() {
+  const resultDiv = document.getElementById('test_result');
+  const message = document.getElementById('test_message').value;
+
+  if (!message.trim()) {
+    resultDiv.style.display = 'block';
+    resultDiv.style.color = 'var(--danger)';
+    resultDiv.textContent = '请输入测试消息';
+    return;
+  }
+
+  resultDiv.style.display = 'block';
+  resultDiv.style.color = 'var(--sub)';
+  resultDiv.textContent = '发送中...';
+
+  try {
+    const res = await fetch('/api/openclaw/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: message }),
+    });
+    const data = await res.json();
+
+    if (data.ok) {
+      resultDiv.style.color = 'var(--green)';
+      resultDiv.textContent = '✓ 连接成功\n\n回复：' + (data.reply || '');
+    } else {
+      resultDiv.style.color = 'var(--danger)';
+      resultDiv.textContent = '✗ 连接失败\n\n错误：' + (data.error || '未知错误');
+    }
+  } catch (e) {
+    resultDiv.style.color = 'var(--danger)';
+    resultDiv.textContent = '✗ 请求失败\n\n' + e.message;
+  }
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────
 loadConfig();
 </script>
@@ -1562,6 +1706,100 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json({"ok": True, "filename": unique_name})
             except Exception as e:
                 self.send_json({"ok": False, "error": str(e)}, status=500)
+        elif path == "/api/openclaw/chat":
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length)
+            try:
+                import urllib.request
+                data = json.loads(body)
+                message = data.get("message", "")
+                user_id = data.get("userId", "anonymous")
+                session_id = data.get("sessionId")
+
+                cfg = load_config()
+                openclaw_cfg = cfg.get("openclaw", {})
+                openclaw_url = openclaw_cfg.get("url", "")
+                api_keys = openclaw_cfg.get("api_keys", [])
+
+                if not openclaw_url:
+                    self.send_json({"ok": False, "error": "OpenClaw URL not configured"}, status=500)
+                    return
+                if not api_keys:
+                    self.send_json({"ok": False, "error": "No API keys configured"}, status=500)
+                    return
+
+                api_key = api_keys[0].get("key", "")
+
+                req_data = json.dumps({
+                    "message": message,
+                    "userId": user_id,
+                    "sessionId": session_id
+                }).encode('utf-8')
+
+                req = urllib.request.Request(
+                    openclaw_url,
+                    data=req_data,
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    }
+                )
+
+                with urllib.request.urlopen(req, timeout=30) as response:
+                    resp_data = response.read().decode('utf-8')
+                    resp_json = json.loads(resp_data)
+                    self.send_json(resp_json)
+            except urllib.error.HTTPError as e:
+                error_body = e.read().decode('utf-8') if e.fp else str(e)
+                self.send_json({"ok": False, "error": f"OpenClaw error: {e.code} {error_body}"}, status=502)
+            except Exception as e:
+                self.send_json({"ok": False, "error": str(e)}, status=500)
+        elif path == "/api/openclaw/test":
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length)
+            try:
+                import urllib.request
+                data = json.loads(body)
+                message = data.get("message", "测试消息")
+
+                cfg = load_config()
+                openclaw_cfg = cfg.get("openclaw", {})
+                openclaw_url = openclaw_cfg.get("url", "")
+                api_keys = openclaw_cfg.get("api_keys", [])
+
+                if not openclaw_url:
+                    self.send_json({"ok": False, "error": "未配置 OpenClaw 服务地址"})
+                    return
+                if not api_keys or not api_keys[0].get("key"):
+                    self.send_json({"ok": False, "error": "未配置 API Key"})
+                    return
+
+                api_key = api_keys[0].get("key", "")
+
+                req_data = json.dumps({
+                    "message": message,
+                    "userId": "backend-test",
+                    "sessionId": "test-" + str(uuid_mod.uuid4())[:8]
+                }).encode('utf-8')
+
+                req = urllib.request.Request(
+                    openclaw_url,
+                    data=req_data,
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    }
+                )
+
+                with urllib.request.urlopen(req, timeout=30) as response:
+                    resp_data = response.read().decode('utf-8')
+                    resp_json = json.loads(resp_data)
+                    self.send_json({"ok": True, "reply": resp_json.get("reply", ""), "raw": resp_json})
+            except urllib.error.HTTPError as e:
+                error_body = e.read().decode('utf-8') if e.fp else str(e)
+                self.send_json({"ok": False, "error": f"HTTP {e.code}: {error_body}"})
+            except Exception as e:
+                self.send_json({"ok": False, "error": str(e)})
         else:
             self.send_response(404)
             self.end_headers()
@@ -1570,7 +1808,7 @@ class Handler(BaseHTTPRequestHandler):
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    server = HTTPServer(("127.0.0.1", PORT), Handler)
+    server = HTTPServer(("0.0.0.0", PORT), Handler)
     print(f"\n  AgentDigitalTwin 后台配置服务已启动")
     print(f"  访问地址：http://localhost:{PORT}\n")
     try:

@@ -1,0 +1,10 @@
+#!/usr/bin/expect -f
+
+set timeout 60
+set password "BtMZf4yGGdR0tGEj"
+set host "root@154.9.252.35"
+
+spawn scp $host:/root/.openclaw/extensions/wecom-app/dist/index.js /tmp/wecom-index.js
+expect "password:"
+send "$password\r"
+expect eof

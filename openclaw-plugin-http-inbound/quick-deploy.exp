@@ -1,0 +1,34 @@
+#!/usr/bin/expect -f
+
+set timeout 60
+set password "BtMZf4yGGdR0tGEj"
+set host "root@154.9.252.35"
+
+# Upload tar file
+spawn scp http-inbound-update.tar.gz $host:/tmp/
+expect {
+    "password:" {
+        send "$password\r"
+        exp_continue
+    }
+    eof
+}
+
+# SSH and deploy
+spawn ssh $host
+expect "password:"
+send "$password\r"
+
+expect "# "
+send "cd /root/.openclaw/extensions/http-inbound && tar -xzf /tmp/http-inbound-update.tar.gz && systemctl --user restart openclaw-gateway\r"
+
+expect "# "
+send "sleep 8\r"
+
+expect "# "
+send "curl -X POST http://localhost:3000/api/chat -H 'Authorization: Bearer test-api-key-12345' -H 'Content-Type: application/json' -d '{\"message\":\"Hello\",\"userId\":\"test\"}'\r"
+
+expect "# "
+send "exit\r"
+
+expect eof

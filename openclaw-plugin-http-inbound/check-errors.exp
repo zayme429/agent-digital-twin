@@ -1,0 +1,17 @@
+#!/usr/bin/expect -f
+
+set timeout 60
+set password "BtMZf4yGGdR0tGEj"
+set host "root@154.9.252.35"
+
+spawn ssh $host
+expect "password:"
+send "$password\r"
+
+expect "# "
+send "tail -100 /tmp/openclaw/openclaw-2026-03-10.log | grep -E 'error|Error|ERROR|Failed' -i -A 3\r"
+
+expect "# "
+send "exit\r"
+
+expect eof

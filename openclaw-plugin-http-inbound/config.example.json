@@ -1,0 +1,19 @@
+{
+  "channels": {
+    "http-inbound": {
+      "enabled": true,
+      "port": 3000,
+      "host": "0.0.0.0",
+      "apiKeys": {
+        "REPLACE-WITH-YOUR-GENERATED-KEY": {
+          "name": "AgentDigitalTwin App",
+          "created": "2026-03-09",
+          "permissions": ["chat.send"]
+        }
+      }
+    }
+  },
+  "agent": {
+    "model": "anthropic/claude-sonnet-4-6"
+  }
+}

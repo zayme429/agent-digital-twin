@@ -1,0 +1,23 @@
+#!/usr/bin/expect -f
+
+set timeout 60
+set password "BtMZf4yGGdR0tGEj"
+set host "root@154.9.252.35"
+
+spawn ssh $host
+expect "password:"
+send "$password\r"
+
+expect "# "
+send "openclaw plugins list 2>&1\r"
+
+expect "# "
+send "cat ~/.openclaw/openclaw.json | python3 -m json.tool | grep -A 15 'http-inbound'\r"
+
+expect "# "
+send "ls -la /root/.openclaw/extensions/http-inbound/dist/\r"
+
+expect "# "
+send "exit\r"
+
+expect eof

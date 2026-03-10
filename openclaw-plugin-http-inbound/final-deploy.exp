@@ -1,0 +1,37 @@
+#!/usr/bin/expect -f
+
+set timeout 60
+set password "BtMZf4yGGdR0tGEj"
+set host "root@154.9.252.35"
+
+spawn scp -r dist $host:/root/.openclaw/extensions/http-inbound/
+expect "password:"
+send "$password\r"
+expect eof
+
+spawn ssh $host
+expect "password:"
+send "$password\r"
+
+expect "# "
+send "openclaw gateway stop\r"
+
+expect "# "
+send "sleep 2\r"
+
+expect "# "
+send "openclaw gateway start\r"
+
+expect "# "
+send "sleep 10\r"
+
+expect "# "
+send "curl -s http://localhost:3000/health\r"
+
+expect "# "
+send "tail -30 /tmp/openclaw/openclaw-2026-03-10.log | grep -E 'HTTP.*listening|Clearing stale'\r"
+
+expect "# "
+send "exit\r"
+
+expect eof

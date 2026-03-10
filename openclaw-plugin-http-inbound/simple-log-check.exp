@@ -1,0 +1,26 @@
+#!/usr/bin/expect -f
+
+set timeout 60
+set password "BtMZf4yGGdR0tGEj"
+set host "root@154.9.252.35"
+
+spawn ssh $host
+expect "password:"
+send "$password\r"
+
+expect "# "
+send "grep 'startAccount' /tmp/openclaw/openclaw-2026-03-10.log | tail -5\r"
+
+expect "# "
+send "grep 'HTTP API server' /tmp/openclaw/openclaw-2026-03-10.log | tail -5\r"
+
+expect "# "
+send "ps aux | grep 'node.*openclaw' | grep -v grep\r"
+
+expect "# "
+send "netstat -tlnp | grep 3000\r"
+
+expect "# "
+send "exit\r"
+
+expect eof

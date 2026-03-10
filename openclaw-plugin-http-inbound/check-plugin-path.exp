@@ -1,0 +1,20 @@
+#!/usr/bin/expect -f
+
+set timeout 60
+set password "BtMZf4yGGdR0tGEj"
+set host "root@154.9.252.35"
+
+spawn ssh $host
+expect "password:"
+send "$password\r"
+
+expect "# "
+send "tail -200 /tmp/openclaw/openclaw-2026-03-10.log | grep -E 'http-inbound.*installPath|http-inbound.*source' | head -5\r"
+
+expect "# "
+send "ls -la /root/.openclaw/extensions/ | grep http\r"
+
+expect "# "
+send "exit\r"
+
+expect eof

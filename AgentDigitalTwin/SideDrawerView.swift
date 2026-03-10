@@ -17,6 +17,7 @@ struct SideDrawerView: View {
 
     @State private var showPersonaSettings = false
     @State private var showCompanion       = false
+    @State private var showOpenClawChat    = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -111,6 +112,39 @@ struct SideDrawerView: View {
                                         .stroke(DS.border, lineWidth: 1))
                                     .shadow(color: Color.black.opacity(0.03), radius: 3, y: 1))
                             }
+                            
+                            Button {
+                                showOpenClawChat = true
+                            } label: {
+                                HStack(spacing: 10) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(Color(red: 0.33, green: 0.18, blue: 0.78).opacity(0.12))
+                                            .frame(width: 32, height: 32)
+                                        Image(systemName: "bubble.left.and.bubble.right.fill")
+                                            .font(.system(size: 14))
+                                            .foregroundColor(DS.accent)
+                                    }
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text("OpenClaw 对话")
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundColor(DS.label)
+                                        Text("远程 AI 助手")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(DS.sub)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(DS.sub)
+                                }
+                                .padding(10)
+                                .background(RoundedRectangle(cornerRadius: 10)
+                                    .fill(DS.card)
+                                    .overlay(RoundedRectangle(cornerRadius: 10)
+                                        .stroke(DS.border, lineWidth: 1))
+                                    .shadow(color: Color.black.opacity(0.03), radius: 3, y: 1))
+                            }
                         }
 
                         Divider().background(DS.divider)
@@ -170,6 +204,9 @@ struct SideDrawerView: View {
         }
         .fullScreenCover(isPresented: $showCompanion) {
             CompanionChatView(client: .wangJie)
+        }
+        .sheet(isPresented: $showOpenClawChat) {
+            OpenClawChatView()
         }
     }
 

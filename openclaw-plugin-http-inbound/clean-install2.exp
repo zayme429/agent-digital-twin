@@ -1,0 +1,41 @@
+#!/usr/bin/expect -f
+
+set timeout 120
+set password "BtMZf4yGGdR0tGEj"
+set host "root@154.9.252.35"
+
+spawn ssh $host
+expect "password:"
+send "$password\r"
+
+expect "# "
+send "cd ~/.openclaw\r"
+
+expect "# "
+send "cp openclaw.json openclaw.json.backup2\r"
+
+expect "# "
+send "cat openclaw.json | jq 'del(.channels.\"http-inbound\") | del(.plugins.entries.\"http-inbound\") | del(.plugins.installs.\"http-inbound\")' > openclaw.json.tmp && mv openclaw.json.tmp openclaw.json\r"
+
+expect "# "
+send "cd /root/.openclaw/extensions/http-inbound\r"
+
+expect "# "
+send "openclaw plugins install . 2>&1 | head -100\r"
+
+expect "# "
+send "sleep 3\r"
+
+expect "# "
+send "systemctl --user restart openclaw-gateway\r"
+
+expect "# "
+send "sleep 10\r"
+
+expect "# "
+send "curl http://localhost:3000/health\r"
+
+expect "# "
+send "exit\r"
+
+expect eof

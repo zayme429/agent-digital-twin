@@ -1,0 +1,34 @@
+#!/usr/bin/expect -f
+
+set timeout 60
+set password "BtMZf4yGGdR0tGEj"
+set host "root@154.9.252.35"
+
+spawn scp -r dist $host:/root/.openclaw/extensions/http-inbound/
+expect "password:"
+send "$password\r"
+expect eof
+
+spawn ssh $host
+expect "password:"
+send "$password\r"
+
+expect "# "
+send "openclaw gateway stop\r"
+
+expect "# "
+send "sleep 2\r"
+
+expect "# "
+send "openclaw gateway start\r"
+
+expect "# "
+send "sleep 5\r"
+
+expect "# "
+send "curl -X POST http://localhost:3000/api/chat -H 'Authorization: Bearer test-api-key-12345' -H 'Content-Type: application/json' -d '{\"message\":\"Hello AI\",\"userId\":\"test\"}'\r"
+
+expect "# "
+send "exit\r"
+
+expect eof

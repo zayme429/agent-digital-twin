@@ -1,0 +1,17 @@
+#!/usr/bin/expect -f
+
+set timeout 60
+set password "BtMZf4yGGdR0tGEj"
+set host "root@154.9.252.35"
+
+spawn ssh $host
+expect "password:"
+send "$password\r"
+
+expect "# "
+send "head -150 /root/.openclaw/extensions/http-inbound/dist/channel.js | tail -40\r"
+
+expect "# "
+send "exit\r"
+
+expect eof

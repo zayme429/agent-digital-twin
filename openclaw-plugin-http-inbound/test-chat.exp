@@ -1,0 +1,29 @@
+#!/usr/bin/expect -f
+
+set timeout 60
+set password "BtMZf4yGGdR0tGEj"
+set host "root@154.9.252.35"
+
+spawn ssh $host
+expect "password:"
+send "$password\r"
+
+expect "# "
+send "curl -X POST http://154.9.252.35:3000/api/chat \\\r"
+expect ">"
+send "  -H 'Content-Type: application/json' \\\r"
+expect ">"
+send "  -H 'Authorization: Bearer test-api-key-12345' \\\r"
+expect ">"
+send "  -d '{\"message\": \"你好，请介绍一下你自己\", \"userId\": \"test-user-001\"}'\r"
+
+expect "# "
+send "sleep 2\r"
+
+expect "# "
+send "tail -50 /tmp/openclaw/openclaw-2026-03-10.log | grep -E '(http-inbound|Processing chat|Resolved route|dispatchReply)'\r"
+
+expect "# "
+send "exit\r"
+
+expect eof

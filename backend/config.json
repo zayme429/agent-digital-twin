@@ -118,5 +118,16 @@
       "media_desc": "",
       "style_note": "用生活化表达，避免专业术语"
     }
-  ]
+  ],
+  "openclaw": {
+    "enabled": true,
+    "url": "http://154.9.252.35:3000/api/chat",
+    "api_keys": [
+      {
+        "key": "test-api-key-12345",
+        "name": "Test Client",
+        "created": "2026-03-10"
+      }
+    ]
+  }
 }

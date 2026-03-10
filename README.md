@@ -34,6 +34,7 @@
 - **切换人设** — 一键切换代理人风格
 - **今日已执行** — 查看当天已完成任务
 - **历史对话** — 查看过往日期的对话记录
+- **OpenClaw 对话** — 与 OpenClaw AI 进行实时对话（需配置后端）
 
 ### 人设系统
 内置 4 种默认人设，支持自定义：
@@ -94,16 +95,56 @@ AgentDigitalTwin/
 ├── Models.swift                   # 数据模型：Platform、ScheduleCard、TimelineItem
 ├── ScheduleManager.swift          # 核心调度器：每日会话、定时触发、时间轴管理
 ├── ContentView.swift              # 主界面：全屏聊天流 + 所有气泡组件
-├── SideDrawerView.swift           # 左侧抽屉：人设切换、已执行列表、历史记录
+├── SideDrawerView.swift           # 左侧抽屉：人设切换、已执行列表、历史记录、OpenClaw 入口
 ├── ConfirmExecuteSheet.swift      # 任务确认底部弹窗
 ├── TaskProgressOverlay.swift      # 任务执行进度覆盖层
 ├── PersonaModel.swift             # 人设数据模型
 ├── PersonaManager.swift           # 人设状态管理
 ├── PersonaSelectorView.swift      # 人设选择组件
 ├── PersonaSettingsView.swift      # 人设配置管理页
+├── OpenClawChatView.swift         # OpenClaw 对话界面
 ├── StarsBackground.swift          # 星空背景动画
-└── HeaderView.swift               # 顶部状态栏组件
+├── HeaderView.swift               # 顶部状态栏组件
+├── backend/                       # 后端服务
+│   ├── server.py                  # Python 后端服务器（配置管理 + OpenClaw 转发）
+│   ├── config.json                # 配置文件（自动生成）
+│   ├── media/                     # 上传的图片文件
+│   └── backups/                   # 配置备份
+└── openclaw-plugin-http-inbound/  # OpenClaw HTTP Inbound Channel 插件
+    ├── src/                       # 插件源码
+    ├── mock-server.py             # 本地测试用 Mock Server
+    └── 文档...                    # 详细文档
 ```
+
+---
+
+## OpenClaw AI 集成
+
+本项目已集成 OpenClaw AI 对话功能。
+
+### 快速开始
+
+1. **启动后端服务器**
+   ```bash
+   cd backend
+   python3 server.py
+   ```
+
+2. **配置 OpenClaw**
+   - 打开浏览器访问 http://localhost:8765
+   - 点击 "🔌 OpenClaw" 标签
+   - 配置服务地址和 API Key
+   - 使用测试功能验证连接
+
+3. **在 iOS App 中使用**
+   - 打开侧边栏（左上角三条横线）
+   - 点击 "OpenClaw 对话"
+   - 开始与 AI 对话
+
+### 详细文档
+
+- [OpenClaw 集成总结](OPENCLAW_INTEGRATION.md) - 完整的集成说明和使用指南
+- [OpenClaw 迁移指南](OPENCLAW_MIGRATION_GUIDE.md) - 如何将 OpenClaw 集成到其他项目
 
 ---
 

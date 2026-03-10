@@ -1,0 +1,56 @@
+{
+  "id": "http-inbound",
+  "name": "HTTP Inbound API",
+  "description": "Allows custom applications to connect to OpenClaw via HTTP REST API with API key authentication",
+  "channels": ["http-inbound"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true
+      },
+      "port": {
+        "type": "number",
+        "default": 3000
+      },
+      "host": {
+        "type": "string",
+        "default": "0.0.0.0"
+      },
+      "apiKeys": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "created": { "type": "string" },
+            "permissions": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "uiHints": {
+    "enabled": {
+      "label": "Enable HTTP Inbound Channel",
+      "help": "Allow external applications to send messages via HTTP API"
+    },
+    "port": {
+      "label": "HTTP Server Port",
+      "help": "Port for the HTTP API server (default: 3000)"
+    },
+    "host": {
+      "label": "Bind Address",
+      "help": "Host to bind the HTTP server (0.0.0.0 for all interfaces, 127.0.0.1 for localhost only)"
+    },
+    "apiKeys": {
+      "label": "API Keys",
+      "help": "Manage API keys for client applications. Each key grants access to send messages."
+    }
+  }
+}

@@ -1,0 +1,53 @@
+#!/usr/bin/expect -f
+
+set timeout 120
+set password "BtMZf4yGGdR0tGEj"
+set host "root@154.9.252.35"
+
+spawn ssh $host
+expect "password:"
+send "$password\r"
+
+expect "# "
+send "cd ~/.openclaw\r"
+
+expect "# "
+send "cp openclaw.json openclaw.json.backup\r"
+
+expect "# "
+send "python3 << 'PYTHON_EOF'\r"
+expect ">>> "
+send "import json\r"
+expect ">>> "
+send "with open('openclaw.json', 'r') as f:\r"
+expect "...     "
+send "    config = json.load(f)\r"
+expect ">>> "
+send "if 'channels' in config and 'http-inbound' in config['channels']:\r"
+expect "...     "
+send "    del config['channels']['http-inbound']\r"
+expect ">>> "
+send "if 'plugins' in config and 'entries' in config['plugins'] and 'http-inbound' in config['plugins']['entries']:\r"
+expect "...     "
+send "    del config['plugins']['entries']['http-inbound']\r"
+expect ">>> "
+send "if 'plugins' in config and 'installs' in config['plugins'] and 'http-inbound' in config['plugins']['installs']:\r"
+expect "...     "
+send "    del config['plugins']['installs']['http-inbound']\r"
+expect ">>> "
+send "with open('openclaw.json', 'w') as f:\r"
+expect "...     "
+send "    json.dump(config, f, indent=2)\r"
+expect ">>> "
+send "exit()\r"
+
+expect "# "
+send "cd /root/.openclaw/extensions/http-inbound\r"
+
+expect "# "
+send "openclaw plugins install . 2>&1 | head -50\r"
+
+expect "# "
+send "exit\r"
+
+expect eof

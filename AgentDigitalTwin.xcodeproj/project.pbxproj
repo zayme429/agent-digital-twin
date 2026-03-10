@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5D0F2FAA51CA4DD48A5ADF18 /* OpenClawChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90C32F30BA4948948FDAD893 /* OpenClawChatView.swift */; };
 		002200000000000000000001 /* AgentDigitalTwinApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 001100000000000000000001 /* AgentDigitalTwinApp.swift */; };
 		002200000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 001100000000000000000002 /* ContentView.swift */; };
 		002200000000000000000003 /* CardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 001100000000000000000003 /* CardView.swift */; };
@@ -30,6 +31,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		90C32F30BA4948948FDAD893 /* OpenClawChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenClawChatView.swift; sourceTree = "<group>"; };
 		001100000000000000000001 /* AgentDigitalTwinApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentDigitalTwinApp.swift; sourceTree = "<group>"; };
 		001100000000000000000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		001100000000000000000003 /* CardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardView.swift; sourceTree = "<group>"; };
@@ -75,6 +77,7 @@
 		AAABBBC0D0E0F1A2B3C4D5EA /* AgentDigitalTwin */ = {
 			isa = PBXGroup;
 			children = (
+				90C32F30BA4948948FDAD893 /* OpenClawChatView.swift */,
 				001100000000000000000001 /* AgentDigitalTwinApp.swift */,
 				001100000000000000000002 /* ContentView.swift */,
 				001100000000000000000003 /* CardView.swift */,
@@ -194,6 +197,7 @@
 				002200000000000000000006 /* MessageInputView.swift in Sources */,
 				002200000000000000000007 /* StarsBackground.swift in Sources */,
 				002200000000000000000008 /* Models.swift in Sources */,
+				5D0F2FAA51CA4DD48A5ADF18 /* OpenClawChatView.swift in Sources */,
 				002200000000000000000009 /* ScheduleManager.swift in Sources */,
 				00220000000000000000000C /* PersonaModel.swift in Sources */,
 				00220000000000000000000D /* PersonaManager.swift in Sources */,
